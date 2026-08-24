@@ -23,20 +23,25 @@ Phases mirror the PRD milestones. Work top to bottom — each phase should leave
 
 Goal: clone a repo, parse it, and populate Neo4j with a correct graph — verified by hand-written Cypher queries, no agent/LLM involved yet.
 
-- [ ] Repo cloning module (shallow clone to temp dir given a GitHub URL)
-- [ ] File walker: collect `.py` files, skip vendored/test/venv dirs by default (configurable)
-- [ ] Tree-sitter setup: load Python grammar, parse a file to AST
-- [ ] Schema mapper (Python visitor) emitting nodes: `File`, `Module`, `Class`, `Function`, `Method`, `Import`
-- [ ] Schema mapper: emit edges `CONTAINS`, `DEFINES`, `IMPORTS`, `INHERITS`
-- [ ] `CALLS` edge resolution (name resolution within module scope first; document known limitations for dynamic dispatch)
-- [ ] `REFERENCES` edge resolution (type hints, instantiation)
-- [ ] Deterministic node ID scheme (`hash(repo + file_path + qualified_name)`)
-- [ ] Neo4j bulk loader (batched `UNWIND` writes, not per-node queries)
-- [ ] Idempotent re-ingestion (upsert on node ID, no duplicates on re-run)
-- [ ] Manual verification: hand-write ~10 Cypher queries against a real small repo and confirm expected results
-- [ ] Ingestion CLI command (`ingest <github_url>`) producing a node/edge count summary
+- [x] Repo cloning module (shallow clone to temp dir given a GitHub URL)
+- [x] File walker: collect `.py` files, skip vendored/test/venv dirs by default (configurable)
+- [x] Tree-sitter setup: load Python grammar, parse a file to AST
+- [x] Schema mapper (Python visitor) emitting nodes: `File`, `Module`, `Class`, `Function`, `Method`, `Import`
+- [x] Schema mapper: emit edges `CONTAINS`, `DEFINES`, `IMPORTS`, `INHERITS`
+- [x] `CALLS` edge resolution (name resolution within module scope first; document known limitations for dynamic dispatch)
+- [x] `REFERENCES` edge resolution (type hints, instantiation)
+- [x] Deterministic node ID scheme (`hash(repo + file_path + qualified_name)`)
+- [x] Neo4j bulk loader (batched `UNWIND` writes, not per-node queries)
+- [x] Idempotent re-ingestion (upsert on node ID, no duplicates on re-run)
+- [x] Manual verification: hand-write ~10 Cypher queries against a real small repo and confirm expected results
+- [x] Ingestion CLI command (`ingest <github_url>`) producing a node/edge count summary
 
-**Exit criteria:** can ingest a real small Python repo and get correct answers to structural questions via raw Cypher in Neo4j Browser.
+**Exit criteria:** can ingest a real small Python repo and get correct answers to structural questions via raw Cypher in Neo4j Browser. ✅
+
+Verified against `psf/requests` (22 files, ~2s) and `pallets/click` (32 files, ~3.5s):
+call resolution 70% / 83% of internal call sites, inheritance and import queries
+correct on spot-checks against source. Known limitations are documented in
+[ARCHITECTURE.md](./ARCHITECTURE.md#resolution-what-works-and-what-does-not).
 
 ---
 

@@ -99,6 +99,46 @@ Two independent pipelines share the same cloned repo: **ingestion** (build-time,
 
 This is deliberately a subset of code-graph-rag's 20 node / 23 edge schema — enough to answer real structural questions (who calls this, what inherits from what, what does this import) without the maintenance cost of a much larger schema. Extending it (e.g., adding `Interface`, `Enum`, data-flow edges) is a natural, well-scoped follow-up once MVP is proven.
 
+### Module naming
+
+Modules are keyed by the name they are *imported* by, not their path on disk. The
+package root is the outermost unbroken run of directories containing
+`__init__.py`, so `src/requests/api.py` becomes `requests.api`, not
+`src.requests.api`. This matters for Phase 2: an LLM asked about a codebase will
+write `requests.sessions.Session`, and the graph has to answer to that name.
+
+### Resolution: what works, and what does not
+
+Measured on real repositories (`psf/requests`, `pallets/click`), the resolver
+links 70-83% of call sites that point at repository-internal code. References
+that provably point outside the repo (imports that resolve to no internal
+module, builtins) and attribute calls on values with no inferable type are
+counted separately rather than folded into the miss rate — otherwise the number
+would mostly measure how much stdlib a project uses.
+
+Resolved: plain calls via local/imported/unique-name lookup, `self.`/`cls.`
+calls (respecting overrides), `super().` calls against base classes, calls on
+variables assigned from a constructor, calls on parameters with a class
+annotation, calls on imported internal modules, inner functions calling their
+siblings, and imports guarded by `if TYPE_CHECKING:` or `try/except ImportError`.
+
+Not resolved, by design or by known limitation:
+
+* Receivers whose type comes from a **method return value** — `adapter =
+  self.get_adapter(url); adapter.send(...)` does not link, because return-type
+  inference across calls is not implemented. This is the largest remaining gap.
+* Module-level **variable aliases** (`preferred_clock = time.perf_counter`) —
+  only `def`/`class` statements become nodes.
+* Names **re-exported from an internal module but originating in the stdlib**
+  (`from .compat import urlparse`) correctly produce no edge, since the target
+  has no node.
+* Dynamic dispatch, `getattr`, monkey-patching, and star-imports.
+* Attribute chains on `self` (`self._thread_local.chal.get(...)`).
+
+The unique-name fallback links a call only when exactly one candidate exists
+repository-wide, trading recall for precision. Phase 5 measures whether that
+trade is the right one.
+
 ### Language-agnostic mapping strategy
 Each language gets its own tree-sitter grammar and a thin visitor that maps language-specific AST node types onto the shared schema above (e.g., Python `class_definition` and TypeScript `class_declaration` both emit a `Class` node with the same property set). New language support means writing a new visitor against the existing schema, not changing the schema itself.
 
@@ -145,5 +185,5 @@ Each language gets its own tree-sitter grammar and a thin visitor that maps lang
 
 ## 8. Open Technical Risks
 
-- Tree-sitter query complexity for accurately resolving `CALLS` edges in dynamic languages (Python's dynamic dispatch, JS's prototype chains) — likely the hardest correctness problem in the project; scope the eval harness to be honest about known gaps here rather than overclaiming recall.
+- Tree-sitter query complexity for accurately resolving `CALLS` edges in dynamic languages (Python's dynamic dispatch, JS's prototype chains) — likely the hardest correctness problem in the project; scope the eval harness to be honest about known gaps here rather than overclaiming recall. **Phase 1 update:** confirmed as the main source of missed edges; see "Resolution: what works, and what does not" above for the measured breakdown. Return-value type inference is the highest-value remaining improvement.
 - Cypher generation reliability from the LLM — mitigate with strict schema-grounded prompting, few-shot examples, and validation before execution; track failure rate as part of the eval harness, not just success cases.
