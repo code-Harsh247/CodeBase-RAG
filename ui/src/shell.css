@@ -153,25 +153,36 @@ body {
   cursor: pointer;
 }
 
-.project-name {
+.project-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.project-name,
+.project-owner {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-name {
   font-size: 14px;
 }
 
-/* The node count is the first thing to go when space is tight — the name
-   matters more than the number. */
-.project-open .count {
-  flex-shrink: 0;
+/* The owner is context rather than identity — it tells two repos of the same
+   name apart, and should never compete with the name above it. */
+.project-owner {
+  font-size: 11px;
+  color: var(--muted);
 }
 
-@container (max-width: 200px) {
-  .project-open .count {
-    display: none;
-  }
+/* --muted is tuned for the panel background; on the accent fill of the active
+   row it disappears. */
+.project.active .project-owner {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 /* Revealed on hover or keyboard focus, so the list stays quiet at rest but

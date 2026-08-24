@@ -81,12 +81,10 @@ export default function App() {
 
     const fromThreads = deduped.map((thread) => {
       if (thread.repoId) claimed.add(thread.repoId);
-      const repo = thread.repoId ? indexed.get(thread.repoId) : undefined;
       return {
         thread,
         repoId: thread.repoId,
         label: thread.repoId ?? thread.url ?? "New project",
-        nodes: repo?.nodes ?? null,
         // With no server list we cannot know; assume available rather than
         // marking every thread stale because Neo4j is down.
         available: reposError ? true : !thread.repoId || indexed.has(thread.repoId),
@@ -102,7 +100,6 @@ export default function App() {
         thread: null,
         repoId: repo.repo_id,
         label: repo.repo_id,
-        nodes: repo.nodes,
         available: true,
         running: false,
       }));

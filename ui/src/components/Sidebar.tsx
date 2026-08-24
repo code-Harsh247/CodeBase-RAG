@@ -5,10 +5,26 @@ export interface SidebarRow {
   thread: Thread | null;
   repoId: string | null;
   label: string;
-  nodes: number | null;
   /** Indexed on the server. False means the graph no longer has it. */
   available: boolean;
   running: boolean;
+}
+
+/**
+ * Split a row label into the repository name and its owner.
+ *
+ * The name is what distinguishes one project from another in a list; the owner
+ * only matters when two repos share a name, so it goes underneath in small
+ * type. A thread shows its URL until the ingest `start` event supplies the repo
+ * id, so URLs are handled too.
+ */
+function splitLabel(label: string): { name: string; owner: string | null } {
+  const path = label.replace(/^https?:\/\/[^/]+\//, "").replace(/\.git$/, "");
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length >= 2) {
+    return { owner: parts[parts.length - 2], name: parts[parts.length - 1] };
+  }
+  return { owner: null, name: label };
 }
 
 export function Sidebar({
@@ -43,6 +59,7 @@ export function Sidebar({
 
       <nav className="project-list">
         {rows.map((row) => {
+          const { name, owner } = splitLabel(row.label);
           const active = row.thread
             ? row.thread.id === activeThreadId
             : row.repoId === activeRepoId && !activeThreadId;
@@ -63,12 +80,12 @@ export function Sidebar({
                 onClick={() => onSelect(row)}
                 title={row.available ? row.label : `${row.label} — no longer indexed`}
               >
-                <span className="project-name">{row.label}</span>
+                <span className="project-text">
+                  <span className="project-name">{name}</span>
+                  {owner && <span className="project-owner">{owner}</span>}
+                </span>
                 {row.running && <span className="dot" />}
                 {!row.available && <span className="badge subtle">not indexed</span>}
-                {row.available && row.nodes !== null && !row.running && (
-                  <span className="muted count">{row.nodes.toLocaleString()}</span>
-                )}
               </button>
 
               <button
