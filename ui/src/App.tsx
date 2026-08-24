@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteRepo, fetchRepos, type Repo } from "./api";
 import { Composer } from "./components/Composer";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Sidebar, type SidebarRow } from "./components/Sidebar";
 import { Thread } from "./components/Thread";
 import { TracePanel } from "./components/TracePanel";
-import { loadSidebarOpen, saveSidebarOpen } from "./state/storage";
 import { newId } from "./state/types";
 import { useThreadStore } from "./state/useThreadStore";
 
@@ -12,9 +12,9 @@ export default function App() {
   const { store, dispatch, startIngest, ask } = useThreadStore();
   const [repos, setRepos] = useState<Repo[]>([]);
   const [reposError, setReposError] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
   const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SidebarRow | null>(null);
 
   const refreshRepos = useCallback(async () => {
     try {
@@ -30,8 +30,6 @@ export default function App() {
   useEffect(() => {
     void refreshRepos();
   }, [refreshRepos]);
-
-  useEffect(() => saveSidebarOpen(sidebarOpen), [sidebarOpen]);
 
   const activeThread = store.activeThreadId
     ? (store.threads[store.activeThreadId] ?? null)
@@ -117,16 +115,9 @@ export default function App() {
     }
   }
 
+  /** Runs only after the dialog is confirmed. */
   async function removeProject(row: SidebarRow) {
-    const label = row.label;
-    // Irreversible: the graph, the embeddings and the clone all go. Re-adding
-    // means re-indexing from scratch, so ask first.
-    const confirmed = window.confirm(
-      `Delete ${label}?
-
-This removes its graph, embeddings, cloned source and chat history. Re-adding it means indexing again.`,
-    );
-    if (!confirmed) return;
+    setPendingDelete(null);
 
     // Re-indexing a repository leaves more than one thread for it, and the
     // sidebar only shows the newest. Deleting the project has to take all of
@@ -175,19 +166,18 @@ This removes its graph, embeddings, cloned source and chat history. Re-adding it
     tracedMessage && tracedMessage.kind === "assistant" ? tracedMessage.hops : null;
 
   const showHero = !activeThread;
+  const doomedLabel = pendingDelete?.label ?? "";
 
   return (
-    <div className={`shell${sidebarOpen ? "" : " collapsed"}`}>
+    <div className="shell">
       <Sidebar
         rows={rows}
         activeThreadId={store.activeThreadId}
         activeRepoId={activeThread?.repoId ?? null}
-        open={sidebarOpen}
         reposError={reposError}
-        onToggle={() => setSidebarOpen((open) => !open)}
         deleting={deleting}
         onSelect={selectRow}
-        onDelete={(row) => void removeProject(row)}
+        onDelete={setPendingDelete}
         onNew={() => {
           setTraceMessageId(null);
           dispatch({ type: "activeThreadSet", threadId: null });
@@ -195,17 +185,6 @@ This removes its graph, embeddings, cloned source and chat history. Re-adding it
       />
 
       <main className="main">
-        {!sidebarOpen && (
-          <button
-            type="button"
-            className="icon-button expand"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Expand sidebar"
-          >
-            ›
-          </button>
-        )}
-
         {showHero ? (
           <div className="hero">
             <h1>CodeGraph</h1>
@@ -238,6 +217,14 @@ This removes its graph, embeddings, cloned source and chat history. Re-adding it
         hops={tracedHops}
         running={running}
         onClose={() => setTraceMessageId(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={`Delete ${doomedLabel}?`}
+        body={`This removes its graph, embeddings, cloned source and chat history. Re-adding it means indexing again.`}
+        onConfirm={() => pendingDelete && void removeProject(pendingDelete)}
+        onCancel={() => setPendingDelete(null)}
       />
     </div>
   );

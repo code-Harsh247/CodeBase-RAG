@@ -40,18 +40,11 @@ body {
   overflow: hidden;
 }
 
-/* Grid track sizes animate between two lengths, so collapsing the sidebar
-   needs no JS measuring. */
 .shell {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   height: 100dvh;
   overflow: hidden;
-  transition: grid-template-columns 180ms ease;
-}
-
-.shell.collapsed {
-  --sidebar-w: 0px;
 }
 
 /* ------------------------------------------------------------- sidebar */
@@ -94,13 +87,6 @@ body {
 .icon-button:hover {
   color: var(--text);
   background: var(--panel-2);
-}
-
-.icon-button.expand {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
 }
 
 .new-project {
@@ -209,12 +195,15 @@ body {
 
 .project:hover .project-delete,
 .project-delete:focus-visible {
-  opacity: 1;
+  opacity: 0.7;
 }
 
-.project-delete:hover {
-  color: var(--red);
-  background: rgba(224, 122, 122, 0.12);
+/* Brighten rather than turn red: the warning belongs in the confirmation
+   dialog, where it can be read, not in a hover state that flashes past. */
+.project-delete:hover,
+.project-delete:focus-visible {
+  opacity: 1;
+  color: var(--text);
 }
 
 .empty-hint,
@@ -686,29 +675,103 @@ body {
    conversation is the point, so it keeps the full width and the sidebar
    slides over it. */
 @media (max-width: 720px) {
-  .shell,
-  .shell.collapsed {
-    grid-template-columns: 1fr;
+  :root {
+    --sidebar-w: 190px;
   }
+}
 
-  .sidebar {
-    position: fixed;
-    inset-block: 0;
-    left: 0;
-    z-index: 5;
-    width: min(280px, 86vw);
-    transform: translateX(-100%);
-    transition: transform 180ms ease;
+/* ----------------------------------------------------------------- modal */
+
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  animation: fade 140ms ease both;
+}
+
+.modal {
+  width: min(440px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: pop 160ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.modal h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-transform: none;
+}
+
+.modal p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-cancel,
+.modal-confirm {
+  font: inherit;
+  font-size: 14px;
+  border-radius: 8px;
+  padding: 9px 18px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.modal-cancel {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.modal-cancel:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+/* The one place red belongs: an irreversible action, named and deliberate. */
+.modal-confirm {
+  background: var(--red);
+  color: #1a0e0e;
+  font-weight: 600;
+}
+
+.modal-confirm:hover {
+  filter: brightness(1.1);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
   }
+}
 
-  .shell:not(.collapsed) .sidebar {
-    transform: none;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
   }
+}
 
-  /* The expand affordance is the only way back to the sidebar here, so it
-     must show whenever the drawer is closed, not only when collapsed. */
-  .icon-button.expand {
-    display: block;
+@media (prefers-reduced-motion: reduce) {
+  .modal-scrim,
+  .modal {
+    animation: none;
   }
 }

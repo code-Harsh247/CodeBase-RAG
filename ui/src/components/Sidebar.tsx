@@ -15,10 +15,8 @@ export function Sidebar({
   rows,
   activeThreadId,
   activeRepoId,
-  open,
   reposError,
   deleting,
-  onToggle,
   onSelect,
   onNew,
   onDelete,
@@ -26,27 +24,16 @@ export function Sidebar({
   rows: SidebarRow[];
   activeThreadId: string | null;
   activeRepoId: string | null;
-  open: boolean;
   reposError: string;
   deleting: string | null;
-  onToggle: () => void;
   onSelect: (row: SidebarRow) => void;
   onNew: () => void;
   onDelete: (row: SidebarRow) => void;
 }) {
   return (
-    <aside className="sidebar" aria-hidden={!open}>
+    <aside className="sidebar">
       <div className="sidebar-head">
         <span className="brand">CodeGraph</span>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onToggle}
-          title="Collapse sidebar"
-          aria-label="Collapse sidebar"
-        >
-          ‹
-        </button>
       </div>
 
       <button type="button" className="new-project" onClick={onNew}>
