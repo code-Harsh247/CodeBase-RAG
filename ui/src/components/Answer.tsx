@@ -1,137 +1,103 @@
-import type { ReactNode } from "react";
-import type { AnswerEvent } from "../api";
+import type { AnchorHTMLAttributes, ReactNode, TableHTMLAttributes } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+/** A `path/to/file.py` or `path/to/file.py:42` token — the citation format
+ * the system prompt asks for. */
+const CITATION = /^[\w./\\-]+\.py(?::\d+)?$/;
+
+/** Same shape, unanchored, for finding citations embedded in prose. */
+const CITATION_TOKEN = /[\w./\\-]+\.py(?::\d+)?/g;
 
 /**
- * Inline formatting the model actually emits: `code`, **bold**, and
- * `path/to/file.py:42` citations.
+ * The model backtick-wraps citations roughly half the time and writes the
+ * other half as bare prose ("...defined in src/x.py:61)"). Markdown only
+ * turns backtick spans into `code` elements, so bare citations need to be
+ * wrapped before they reach the parser or they render as plain text with no
+ * highlighting — the one thing this tool's traceability claim depends on.
  *
- * Deliberately not a full markdown library. The answer format is constrained
- * by the prompt to plain prose with citations, so three rules cover it — and
- * the citations are the part worth making visually distinct, since traceability
- * to source is the claim this project makes.
+ * Splits on fenced code blocks first and leaves those untouched (a citation-
+ * shaped string inside real code is code, not a citation), then on existing
+ * inline code spans within what's left, so already-backtick-wrapped
+ * citations are never double-wrapped.
  */
-const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|[\w./\\-]+\.py(?::\d+)?)/g;
-
-function renderInline(text: string): ReactNode[] {
-  return text.split(INLINE).map((part, index) => {
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 1) {
-      return <code key={index}>{part.slice(1, -1)}</code>;
-    }
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return <strong key={index}>{renderInline(part.slice(2, -2))}</strong>;
-    }
-    if (/^[\w./\\-]+\.py(?::\d+)?$/.test(part)) {
-      return (
-        <code className="citation" key={index}>
-          {part}
-        </code>
-      );
-    }
-    return <span key={index}>{part}</span>;
-  });
-}
-
-const BULLET = /^\s*[-*]\s+/;
-const TABLE_ROW = /^\s*\|.*\|\s*$/;
-//: The |---|---| separator under a table header.
-const TABLE_RULE = /^\s*\|[\s:|-]+\|\s*$/;
-
-function cells(row: string): string[] {
-  return row
-    .trim()
-    .replace(/^\||\|$/g, "")
-    .split("|")
-    .map((cell) => cell.trim());
+function linkifyBareCitations(text: string): string {
+  return text
+    .split(/(```[\s\S]*?```)/g)
+    .map((segment) =>
+      segment.startsWith("```")
+        ? segment
+        : segment
+            .split(/(`[^`\n]*`)/g)
+            .map((piece) =>
+              piece.startsWith("`") ? piece : piece.replace(CITATION_TOKEN, "`$&`"),
+            )
+            .join(""),
+    )
+    .join("");
 }
 
 /**
- * Blocks the model actually produces: bullet lists and markdown tables.
- *
- * Which one it picks varies between runs for the same question, and this model
- * has repeatedly ignored prompt instructions about output format, so the
- * renderer handles both rather than the prompt trying to forbid one.
+ * Citations get the accent-coloured pill (`.citation`); every other span —
+ * inline code and fenced blocks alike — gets the plain code look. No need to
+ * tell inline and block code apart here: a fenced block's content is never a
+ * single bare filename, so `CITATION` can only ever match a real citation.
  */
-function renderBody(text: string): ReactNode[] {
-  const blocks: ReactNode[] = [];
-  const lines = text.split("\n");
-  let bullets: string[] = [];
-
-  const flushBullets = () => {
-    if (!bullets.length) return;
-    blocks.push(
-      <ul key={`ul-${blocks.length}`}>
-        {bullets.map((item, index) => (
-          <li key={index}>{renderInline(item)}</li>
-        ))}
-      </ul>,
-    );
-    bullets = [];
-  };
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-
-    if (BULLET.test(line)) {
-      bullets.push(line.replace(BULLET, ""));
-      continue;
-    }
-    flushBullets();
-
-    // A table is a header row, a separator, then rows until the block ends.
-    const next = lines.slice(index + 1).find((item) => item.trim());
-    if (TABLE_ROW.test(line) && next && TABLE_RULE.test(next)) {
-      const header = cells(line);
-      const rows: string[][] = [];
-      let cursor = lines.indexOf(next, index + 1) + 1;
-      for (; cursor < lines.length; cursor += 1) {
-        if (!lines[cursor].trim()) continue;
-        if (!TABLE_ROW.test(lines[cursor])) break;
-        rows.push(cells(lines[cursor]));
-      }
-      blocks.push(
-        <div className="table-wrap" key={`t-${blocks.length}`}>
-          <table>
-            <thead>
-              <tr>
-                {header.map((cell, i) => (
-                  <th key={i}>{renderInline(cell)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, r) => (
-                <tr key={r}>
-                  {row.map((cell, c) => (
-                    <td key={c}>{renderInline(cell)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>,
-      );
-      index = cursor - 1;
-      continue;
-    }
-
-    if (line.trim()) {
-      blocks.push(<p key={`p-${blocks.length}`}>{renderInline(line)}</p>);
-    }
+function CodeSpan({ className, children }: { className?: string; children?: ReactNode }) {
+  const text = String(children).replace(/\n$/, "");
+  if (CITATION.test(text)) {
+    return <code className="citation">{text}</code>;
   }
-  flushBullets();
-  return blocks;
+  return <code className={className}>{children}</code>;
 }
 
+/** Wrapped in `.table-wrap` so a wide table scrolls in its own box rather
+ * than the page — the same rule already applied to fenced code and hop
+ * output. */
+function TableWrap({
+  children,
+  ...props
+}: TableHTMLAttributes<HTMLTableElement> & { children?: ReactNode }) {
+  return (
+    <div className="table-wrap">
+      <table {...props}>{children}</table>
+    </div>
+  );
+}
+
+/** Answers can reference external docs or PyPI/GitHub links; open them
+ * without leaving the app. */
+function ExternalLink({
+  children,
+  ...props
+}: AnchorHTMLAttributes<HTMLAnchorElement> & { children?: ReactNode }) {
+  return (
+    <a {...props} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+}
+
+const COMPONENTS = { code: CodeSpan, table: TableWrap, a: ExternalLink };
+
 /**
- * The formatted answer text.
+ * The formatted answer text: full markdown (headings, fenced code, lists,
+ * tables, links) via `react-markdown`, plus citation highlighting on top.
  *
  * Callers must render this inside an element carrying `className="answer"`:
  * every style rule for answer content is descendant-scoped (`.answer p`,
  * `.answer code`, `.answer table`…), so without that wrapper the formatting
- * silently disappears.
+ * silently disappears. Re-parses from scratch on every call, which is what
+ * lets this render safely mid-stream as `text` grows — an unclosed fence or
+ * unfinished table just renders as it stands and corrects itself once the
+ * rest arrives.
  */
 export function AnswerBody({ text }: { text: string }) {
-  return <>{renderBody(text)}</>;
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+      {linkifyBareCitations(text)}
+    </ReactMarkdown>
+  );
 }
 
 /** The "retrieved from" footer of file:line chips. */
@@ -149,21 +115,5 @@ export function Locations({ locations }: { locations: string[] }) {
         )}
       </div>
     </footer>
-  );
-}
-
-export function Answer({ answer }: { answer: AnswerEvent }) {
-  return (
-    <section className="answer">
-      <h2>
-        Answer
-        <span className="muted">
-          {answer.usage.calls} model call{answer.usage.calls === 1 ? "" : "s"} ·{" "}
-          {answer.usage.tokens.toLocaleString()} tokens
-        </span>
-      </h2>
-      <AnswerBody text={answer.answer} />
-      <Locations locations={answer.locations} />
-    </section>
   );
 }

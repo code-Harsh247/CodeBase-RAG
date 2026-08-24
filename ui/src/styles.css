@@ -234,7 +234,8 @@
   margin-top: 8px;
 }
 
-.answer ul {
+.answer ul,
+.answer ol {
   margin: 0 0 10px;
   padding-left: 20px;
   display: flex;
@@ -244,6 +245,42 @@
 
 .answer li::marker {
   color: var(--muted);
+}
+
+.answer li > p {
+  margin: 0;
+}
+
+/* Section headings inside an answer — smaller and lighter than the panel's
+   own `.answer h2` (the "Answer" label), since these are the model's own
+   structure, one level down. */
+.answer h1,
+.answer h2,
+.answer h3,
+.answer h4 {
+  margin: 18px 0 8px;
+  color: #fff;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.answer h1:first-child,
+.answer h2:first-child,
+.answer h3:first-child,
+.answer h4:first-child {
+  margin-top: 0;
+}
+
+.answer h1 {
+  font-size: 18px;
+}
+.answer h2 {
+  font-size: 16px;
+}
+.answer h3,
+.answer h4 {
+  font-size: 14px;
 }
 
 .answer code {
@@ -258,6 +295,52 @@
 .answer code.citation {
   background: var(--accent-dim);
   color: var(--accent);
+}
+
+/* A fenced block, not an inline span: the code element loses the inline
+   pill look (the `pre` box already provides it) and gets room to breathe.
+   Scrolls in its own box rather than the page, same as `.table-wrap`. */
+.answer pre {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.answer pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.answer blockquote {
+  margin: 0 0 10px;
+  padding: 2px 14px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+
+.answer hr {
+  margin: 16px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.answer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.answer a:hover {
+  text-decoration: underline;
+}
+
+.answer del {
+  color: var(--muted);
 }
 
 .answer strong {
