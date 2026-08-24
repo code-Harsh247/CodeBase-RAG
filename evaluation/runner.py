@@ -170,7 +170,9 @@ def run_eval(
                 logger.warning("%s failed on %s: %s", system, question.id, error)
 
             elapsed = time.perf_counter() - started
-            retrieval = score_retrieval(retrieved, question.expected_locations)
+            retrieval = score_retrieval(
+                retrieved, question.expected_locations, question.accept_any
+            )
 
             if error:
                 grade = AnswerGrade("wrong", error, list(question.must_mention))

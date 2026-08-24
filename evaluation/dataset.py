@@ -35,6 +35,16 @@ class EvalQuestion:
     category: Category
     #: Locations that genuinely answer the question, for retrieval scoring.
     expected_locations: list[Location] = field(default_factory=list)
+    #: True when the question has a single answer that several different
+    #: locations evidence equally well, so finding any one of them is full
+    #: credit. False (the default) means the question asks for an enumeration
+    #: and each location is a separate item that has to be found.
+    #:
+    #: The distinction is real and decided by the question's wording, not by
+    #: which system it favours. "What does X call" is answerable either by
+    #: showing X's body or by naming the callee's definition; "which classes
+    #: inherit from X" is not answered by finding one of fifteen.
+    accept_any: bool = False
     #: A short correct answer, for the grader to compare against.
     reference_answer: str = ""
     #: Identifiers a correct answer has to name. Kept small and unambiguous.
@@ -53,6 +63,7 @@ def _parse_question(raw: dict, default_repo: str) -> EvalQuestion:
         question=raw["question"],
         category=category,
         expected_locations=[Location.parse(item) for item in raw.get("locations", [])],
+        accept_any=bool(raw.get("accept_any", False)),
         reference_answer=raw.get("answer", ""),
         must_mention=list(raw.get("must_mention", [])),
         notes=raw.get("notes", ""),

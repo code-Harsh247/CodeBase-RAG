@@ -175,6 +175,45 @@ def test_a_question_with_no_expected_locations_does_not_divide_by_zero():
     assert score_retrieval([Location("a.py", 1)], []).recall == 0.0
 
 
+def test_accept_any_gives_full_credit_for_one_valid_evidence_location():
+    # "What does X call" is answered either by X's body or by the callee's
+    # definition; finding one is not half an answer.
+    expected = [Location("api.py", 74), Location("api.py", 24)]
+    strict = score_retrieval([Location("api.py", 24)], expected)
+    lenient = score_retrieval([Location("api.py", 24)], expected, accept_any=True)
+
+    assert strict.recall == 0.5
+    assert lenient.recall == 1.0
+
+
+def test_accept_any_still_scores_zero_when_nothing_relevant_was_found():
+    score = score_retrieval([Location("zzz.py", 1)], [Location("a.py", 1)], accept_any=True)
+    assert score.recall == 0.0
+    assert not score.hit
+
+
+def test_enumeration_questions_still_require_every_location():
+    # The default: finding one of fifteen subclasses is not a complete answer.
+    expected = [Location("e.py", line) for line in (10, 20, 30, 40)]
+    score = score_retrieval([Location("e.py", 10)], expected)
+    assert score.recall == 0.25
+
+
+def test_accept_any_defaults_to_false(tmp_path):
+    path = _write_questions(
+        tmp_path, [{"id": "q1", "question": "a", "category": "structural"}]
+    )
+    assert load_questions(path)[0].accept_any is False
+
+
+def test_accept_any_is_read_from_the_question_file(tmp_path):
+    path = _write_questions(
+        tmp_path,
+        [{"id": "q1", "question": "a", "category": "structural", "accept_any": True}],
+    )
+    assert load_questions(path)[0].accept_any is True
+
+
 # --------------------------------------------------------- answer grading
 
 

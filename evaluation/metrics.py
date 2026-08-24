@@ -59,6 +59,9 @@ class RetrievalScore:
 
     expected: list[Location]
     retrieved: list[Location]
+    #: See EvalQuestion.accept_any — one answer with several valid evidence
+    #: locations, rather than an enumeration.
+    accept_any: bool = False
 
     @property
     def matched(self) -> int:
@@ -72,7 +75,11 @@ class RetrievalScore:
     @property
     def recall(self) -> float:
         """Of the locations that answer the question, how many were retrieved."""
-        return self.matched / len(self.expected) if self.expected else 0.0
+        if not self.expected:
+            return 0.0
+        if self.accept_any:
+            return 1.0 if self.matched else 0.0
+        return self.matched / len(self.expected)
 
     @property
     def precision(self) -> float:
@@ -97,8 +104,12 @@ class RetrievalScore:
         return self.matched > 0
 
 
-def score_retrieval(retrieved: list[Location], expected: list[Location]) -> RetrievalScore:
-    return RetrievalScore(expected=list(expected), retrieved=list(retrieved))
+def score_retrieval(
+    retrieved: list[Location], expected: list[Location], accept_any: bool = False
+) -> RetrievalScore:
+    return RetrievalScore(
+        expected=list(expected), retrieved=list(retrieved), accept_any=accept_any
+    )
 
 
 @dataclass
