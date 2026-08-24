@@ -1,7 +1,7 @@
 # Tasks
 
 **Companion docs:** [PRD.md](./PRD.md) · [ARCHITECTURE.md](./ARCHITECTURE.md)
-**Status:** Draft v1
+**Status:** Draft v2 — scoped to Python only
 **Last updated:** 2026-08-24
 
 Phases mirror the PRD milestones. Work top to bottom — each phase should leave you with something runnable/demoable, not a half-finished layer.
@@ -80,26 +80,11 @@ Goal: the agent chooses tools and iterates, matching the "not just RAG" thesis.
 
 ---
 
-## Phase 4 — Second Language (TypeScript/JavaScript)
-
-Goal: prove the schema is actually language-agnostic, not Python-specific.
-
-- [ ] Tree-sitter grammar setup for TypeScript/JS
-- [ ] Schema mapper (TS/JS visitor) targeting the same node/edge types as Python
-- [ ] `CALLS`/`IMPORTS`/`INHERITS` resolution for TS/JS (ES module imports, class extends, etc.)
-- [ ] Ingest a real TS/JS repo, verify via Cypher (same process as Phase 1 exit criteria)
-- [ ] Mixed-repo test: ingest a polyglot repo (if available) and confirm no cross-language boundary errors
-- [ ] Re-run Phase 2/3 question sets against a TS/JS repo to confirm the agent layer needed zero changes
-
-**Exit criteria:** same query pipeline, zero changes, works correctly against a TypeScript/JS repo.
-
----
-
-## Phase 5 — Evaluation Harness (the CV headline)
+## Phase 4 — Evaluation Harness (the CV headline)
 
 Goal: quantified proof the graph-hybrid approach beats naive RAG.
 
-- [ ] Pick 2-3 real public repos of varying size/language for the eval set
+- [ ] Pick 2-3 real public Python repos of varying size and layout (flat vs. `src/`) for the eval set
 - [ ] Hand-write ~20-30 ground-truth Q&A pairs (mix of structural, multi-hop, and conceptual questions) with correct source locations
 - [ ] Build minimal naive-RAG baseline (fixed-size chunk + embed + top-k + LLM answer) — separate, throwaway implementation
 - [ ] Retrieval scoring: precision/recall against ground-truth source locations, for both systems
@@ -113,11 +98,12 @@ Goal: quantified proof the graph-hybrid approach beats naive RAG.
 
 ---
 
-## Phase 6 — Stretch (time permitting)
+## Phase 5 — Stretch (time permitting)
 
 - [ ] Minimal React chat UI replacing Streamlit, showing tool-call trace per PRD transparency NFR
 - [ ] Hosted demo: Neo4j AuraDB free tier + backend on a free-tier host
-- [ ] Third language support (proves extensibility cheaply once schema is validated)
+- [ ] Return-value type inference (the largest known resolution gap — see ARCHITECTURE.md)
+- [ ] A second language, if and only if the Python path is fully done and measured — this is the one place the "language-agnostic schema" claim gets proven rather than argued
 - [ ] Incremental re-indexing on git diff instead of full re-parse
 - [ ] Graph visualization embedded in the UI (beyond Neo4j Browser)
 - [ ] Demo GIF/screenshots for README

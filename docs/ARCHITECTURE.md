@@ -2,7 +2,7 @@
 
 **Project:** CodeGraph — Graph-Augmented Codebase Q&A
 **Companion doc:** [PRD.md](./PRD.md)
-**Status:** Draft v1
+**Status:** Draft v2 — scoped to Python only
 **Last updated:** 2026-08-24
 
 ---
@@ -40,7 +40,7 @@ Two independent pipelines share the same cloned repo: **ingestion** (build-time,
 - **Input:** public GitHub URL.
 - **Steps:**
   1. Shallow clone to local disk (or temp storage in deployed mode).
-  2. Walk files matching supported languages (`.py`, `.ts`, `.tsx`, `.js`, `.jsx` for MVP).
+  2. Walk files matching supported languages (`.py` only for MVP).
   3. Parse each file with the appropriate tree-sitter grammar into an AST.
   4. Run the **schema mapper** (language-specific visitor) that walks each AST and emits graph nodes/edges per the unified schema (Section 3).
   5. Bulk-load nodes/edges into Neo4j (batched `UNWIND` Cypher writes, not one query per node).
@@ -140,13 +140,25 @@ repository-wide, trading recall for precision. Phase 5 measures whether that
 trade is the right one.
 
 ### Language-agnostic mapping strategy
-Each language gets its own tree-sitter grammar and a thin visitor that maps language-specific AST node types onto the shared schema above (e.g., Python `class_definition` and TypeScript `class_declaration` both emit a `Class` node with the same property set). New language support means writing a new visitor against the existing schema, not changing the schema itself.
+
+The schema deliberately contains nothing Python-specific: `Class`, `Function`,
+`Method`, `CALLS`, `INHERITS` and the rest describe constructs that most
+languages share. A language is added by writing a tree-sitter grammar binding
+plus a thin visitor that maps its AST node types onto this schema — Python's
+`class_definition` and TypeScript's `class_declaration` would both emit a
+`Class` node with the same property set — without changing the schema itself.
+
+**Only Python is implemented.** The separation is real in the code (`languages.py`
+holds the grammar registry, `python_mapper.py` holds all Python-specific
+knowledge, and `resolver.py` works on the language-neutral pending-reference
+records), but it has not been validated against a second language. Treat
+language-agnosticism as a design intent, not a proven claim.
 
 ## 4. Tech Stack
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| Parsing | tree-sitter (`tree-sitter-languages`) | Language-agnostic ASTs, fast, incremental-parse capable for future incremental indexing. |
+| Parsing | tree-sitter (`tree-sitter-python`) | Language-agnostic ASTs, fast, incremental-parse capable for future incremental indexing. Only the Python grammar is wired up. |
 | Graph DB | Neo4j (Community, via Docker) | Industry-recognized, Cypher, Neo4j Browser gives free visualization for demo material. |
 | Vector store | Chroma (dev) / Qdrant (if hosted demo) | Simple local dev story; Qdrant if a hosted stretch demo is built. |
 | LLM | Claude (Anthropic API) | Tool use / agentic loop support, strong code understanding. |
@@ -158,7 +170,7 @@ Each language gets its own tree-sitter grammar and a thin visitor that maps lang
 ## 5. Data Flow Detail
 
 ### Ingestion sequence
-1. `POST /ingest {repo_url}` → clone → parse → schema-map → bulk write to Neo4j → embed + write to vector store → return `repo_id` + ingestion summary (node/edge counts per type, per language).
+1. `POST /ingest {repo_url}` → clone → parse → schema-map → bulk write to Neo4j → embed + write to vector store → return `repo_id` + ingestion summary (node/edge counts per type).
 
 ### Query sequence
 1. `POST /query {repo_id, question}` → agent loop starts with question + schema reference in system prompt.
@@ -179,11 +191,11 @@ Each language gets its own tree-sitter grammar and a thin visitor that maps lang
 | Graph-first retrieval, vector as fallback | Pure vector RAG | Graph fixes exactly the class of question (relational, multi-hop) that vector RAG is weakest on — this is the project's whole thesis. |
 | Neo4j over Kùzu | Kùzu (embedded, zero-ops) | CV recognizability outweighs the marginal deployment friction; mitigated via Docker Compose. |
 | Agentic multi-hop over single-shot retrieval | One retrieval pass then answer | Real questions about code are often relational chains; single-shot retrieval can't follow them. Also the more defensible "this isn't just RAG" story. |
-| 2 languages at MVP, not N | Match code-graph-rag's 13 | Depth and a working eval story beat shallow breadth for a portfolio piece; language count is a cheap stretch addition once the core works. |
+| Python only at MVP | Match code-graph-rag's 13, or the 2 originally planned here | Depth and a working eval story beat shallow breadth for a portfolio piece. The cost is real and worth stating plainly: the schema's language-agnosticism is now a *design property backed by argument*, not one demonstrated by a second implementation. Adding a language remains a well-scoped extension. |
 | Embed summaries, not raw code chunks | Embed raw code | Natural-language descriptions retrieve better against natural-language queries; established technique, not speculative. |
 | Skip eBPF/runtime tracing | Match code-graph-rag | High implementation cost, not central to proving the graph-vs-vector thesis; explicitly deferred in the PRD. |
 
 ## 8. Open Technical Risks
 
-- Tree-sitter query complexity for accurately resolving `CALLS` edges in dynamic languages (Python's dynamic dispatch, JS's prototype chains) — likely the hardest correctness problem in the project; scope the eval harness to be honest about known gaps here rather than overclaiming recall. **Phase 1 update:** confirmed as the main source of missed edges; see "Resolution: what works, and what does not" above for the measured breakdown. Return-value type inference is the highest-value remaining improvement.
+- Tree-sitter query complexity for accurately resolving `CALLS` edges in a dynamic language (Python's dynamic dispatch, monkey-patching, `getattr`) — likely the hardest correctness problem in the project; scope the eval harness to be honest about known gaps here rather than overclaiming recall. **Phase 1 update:** confirmed as the main source of missed edges; see "Resolution: what works, and what does not" above for the measured breakdown. Return-value type inference is the highest-value remaining improvement.
 - Cypher generation reliability from the LLM — mitigate with strict schema-grounded prompting, few-shot examples, and validation before execution; track failure rate as part of the eval harness, not just success cases.

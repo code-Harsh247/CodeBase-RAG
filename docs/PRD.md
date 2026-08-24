@@ -2,7 +2,7 @@
 
 **Project (working name):** CodeGraph — Graph-Augmented Codebase Q&A
 **Author:** Harsh Chattar
-**Status:** Draft v1
+**Status:** Draft v2 — scoped to Python only
 **Last updated:** 2026-08-24
 
 ---
@@ -19,7 +19,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 ## 2. Goals
 
 1. **Primary (portfolio) goal:** produce a project that demonstrates a real understanding of *why* naive RAG fails for code, and a concrete, measured fix — suitable to show recruiters/interviewers and defend in a technical conversation.
-2. Given any public GitHub repo (within supported languages), let a user ask natural-language questions and get accurate, cited answers (`file:line`).
+2. Given any public Python GitHub repo, let a user ask natural-language questions and get accurate, cited answers (`file:line`).
 3. Quantitatively prove the approach beats naive RAG on a fixed evaluation set, not just claim it.
 
 ### Non-goals (explicitly out of scope for v1)
@@ -27,7 +27,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 - Real-time collaborative multi-user usage.
 - Runtime/dynamic tracing (e.g. eBPF call tracing) — noted as a credible future extension, not built now.
 - Code editing / agentic write-actions (this is a **read/query** tool, not an IDE agent). Explicitly not competing with Cursor on editing — only on codebase *understanding*.
-- Support for more than 2 languages at MVP (Python, TypeScript/JavaScript).
+- Any language other than Python. The schema is *designed* to be language-agnostic, but only a Python mapper is built; adding a second language is a post-MVP extension, not a v1 deliverable.
 
 ## 3. Target Users
 
@@ -38,7 +38,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 
 ### MVP (must-have)
 - Ingest a public GitHub repo URL: clone, parse with tree-sitter, build a knowledge graph in Neo4j.
-- Support **Python** and **TypeScript/JavaScript**.
+- Support **Python** only.
 - Graph schema covering: File, Module, Class, Function, Method, Import nodes; CONTAINS, DEFINES, CALLS, IMPORTS, INHERITS, REFERENCES edges.
 - Natural-language Q&A via an agent that can:
   - Generate and execute Cypher queries against the graph.
@@ -46,10 +46,10 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
   - Fall back to grep/file-read for anything neither structured layer resolves.
 - Answers include citations (`file:line`) traceable to source.
 - A basic UI (chat-style) to ask questions against an ingested repo.
-- An evaluation harness with a fixed Q&A ground-truth set across 2-3 test repos, reporting precision/recall, **and a baseline comparison against naive chunk+embed RAG on the same questions**.
+- An evaluation harness with a fixed Q&A ground-truth set across 2-3 Python test repos, reporting precision/recall, **and a baseline comparison against naive chunk+embed RAG on the same questions**.
 
 ### Stretch (nice-to-have, time permitting)
-- A third language (proves schema extensibility).
+- A second language (would demonstrate the schema really is language-agnostic — currently that is a design property, not a proven one).
 - Incremental re-indexing on git diff instead of full re-parse.
 - Graph visualization in the UI (beyond Neo4j Browser).
 - Hosted live demo (Neo4j AuraDB free tier + deployed backend) so recruiters can try it without local setup.
@@ -64,7 +64,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 | ID | Requirement |
 |----|-------------|
 | FR1 | User submits a public GitHub URL; system clones and ingests it end-to-end without manual intervention. |
-| FR2 | System parses supported languages via tree-sitter and populates the graph schema (see Architecture doc). |
+| FR2 | System parses Python source via tree-sitter and populates the graph schema (see Architecture doc). |
 | FR3 | User asks a free-text question; system returns an answer with source citations. |
 | FR4 | System selects between graph query, vector search, and raw file search based on question type (agentic tool selection, not hardcoded routing). |
 | FR5 | System supports multi-hop questions (e.g., "what calls X, and what does X call") via iterative tool use, not single-shot retrieval. |
@@ -76,7 +76,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 - **Setup friction:** a reviewer should be able to run this locally with `docker-compose up` + one ingest command in under 10 minutes.
 - **Ingestion time:** a mid-sized repo (~10-50k LOC) should ingest in a few minutes, not tens of minutes.
 - **Query latency:** answers returned in well under 30s for typical questions (agentic multi-hop may take longer than single-shot, that's acceptable and should be shown, not hidden).
-- **Correctness over completeness:** prefer a smaller, well-supported language/feature set that works reliably over broad claims that are only partially true.
+- **Correctness over completeness:** prefer one language that works reliably, with limitations documented, over broad language claims that are only partially true.
 - **Transparency:** the UI should show *which tool(s)* were used to answer a question (graph query text, vector hits, files grepped) — this is a differentiator worth surfacing, not hiding as an implementation detail.
 
 ## 7. Success Metrics
@@ -84,7 +84,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 Since this is a portfolio project, "success" = a defensible, demonstrable result:
 
 1. Evaluation harness shows a **measured improvement** in answer/retrieval accuracy vs. a naive-RAG baseline on the same fixed question set (target: meaningfully higher F1/precision on multi-hop and relational questions — exact target TBD once baseline is measured, not fabricated in advance).
-2. At least 2 languages fully working end-to-end on at least 3 real public repos of varying size.
+2. Python working end-to-end on at least 3 real public repos of varying size and layout.
 3. A README with: architecture diagram, demo GIF/screenshots, and the eval results table — the artifact recruiters will actually look at.
 4. Able to verbally defend every architectural decision in this document in an interview setting (why graph over pure vector, why Neo4j, why agentic over single-shot, what the eval methodology proves and its limitations).
 
@@ -95,9 +95,8 @@ Since this is a portfolio project, "success" = a defensible, demonstrable result
 | 1 | Ingestion pipeline: tree-sitter → schema → Neo4j, Python only. Verified via direct Cypher queries. |
 | 2 | NL → Cypher agent, single-shot Q&A working end-to-end. |
 | 3 | Add vector fallback + agentic multi-tool loop (multi-hop). |
-| 4 | Add TypeScript/JavaScript support. |
-| 5 | Eval harness + naive-RAG baseline + comparison writeup. |
-| 6 (stretch) | UI polish, hosted demo, third language, incremental indexing. |
+| 4 | Eval harness + naive-RAG baseline + comparison writeup. |
+| 5 (stretch) | UI polish, hosted demo, a second language, incremental indexing. |
 
 ## 9. Risks & Mitigations
 
@@ -107,8 +106,9 @@ Since this is a portfolio project, "success" = a defensible, demonstrable result
 | NL→Cypher generation produces invalid or unsafe queries | Validate generated Cypher is read-only before execution; constrain query generation with schema-aware prompting and few-shot examples; sandbox execution. |
 | Eval results don't clearly favor the graph approach | This is a real possible outcome, not just a risk to "manage" — report it honestly if so; a well-reasoned negative/mixed result is still a legitimate, defensible portfolio artifact. |
 | Scope creep toward matching code-graph-rag's full feature set (13 languages, eBPF tracing) | This PRD's non-goals section is the guardrail; revisit only after MVP + eval results are complete. |
+| Single-language scope reads as thin to a reviewer | Depth is the answer: measured resolution quality, documented limitations, and a real eval beat a shallow language count. Be ready to say why in an interview. |
 
 ## 10. Open Questions
 
-- Exact target repos for the eval set — pick 2-3 public repos of varying size/language once ingestion is working, to keep eval grounded in real behavior rather than designed to flatter the system.
+- Exact target repos for the eval set — pick 2-3 public Python repos of varying size and layout (flat vs. `src/`) once ingestion is working, to keep eval grounded in real behavior rather than designed to flatter the system.
 - Whether the hosted demo (stretch) is worth the AuraDB free-tier limits for the audience size expected (recruiters spot-checking, not sustained traffic).
