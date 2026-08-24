@@ -234,6 +234,14 @@ body {
   gap: 18px;
 }
 
+/* Indexing on its own gets the middle of the screen; a lone trail pinned to
+   the top of an empty column looks like a page that failed to load. */
+.thread-inner--centered {
+  min-height: 100%;
+  justify-content: center;
+  padding-bottom: 28px;
+}
+
 .thread-empty {
   padding: 24px 0 4px;
 }
@@ -315,25 +323,63 @@ body {
 /* ------------------------------------------------------- ingest stages */
 
 .stages {
+  --progress: 0%;
+  position: relative;
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 14px;
+}
+
+/* The rail: a faint full-height track with a filled section that grows
+   downward as stages complete. This is what makes the progression read as
+   continuous motion rather than six independent state flips. */
+.stages::before,
+.stages::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  border-radius: 1px;
+}
+
+.stages::before {
+  background: var(--border);
+}
+
+.stages::after {
+  bottom: auto;
+  height: var(--progress);
+  background: linear-gradient(var(--accent), var(--accent));
+  transition: height 520ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stages.failed::after {
+  background: var(--red);
 }
 
 .stage {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   font-size: 14px;
   color: var(--muted);
-  opacity: 0.45;
+  opacity: 0.4;
+  transform: translateY(2px);
+  transition:
+    opacity 360ms ease,
+    color 360ms ease,
+    transform 360ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .stage.done {
   opacity: 1;
+  transform: none;
 }
 
 .stage.active {
@@ -344,12 +390,43 @@ body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: currentColor;
+  background: var(--border);
   flex-shrink: 0;
+  /* Sit above the rail so the line appears to thread through each dot. */
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 3px var(--bg);
+  transition:
+    background 360ms ease,
+    box-shadow 360ms ease;
+}
+
+.stage.done .stage-dot {
+  background: var(--accent);
+}
+
+.stages.failed .stage.active .stage-dot {
+  background: var(--red);
 }
 
 .stage.active .stage-dot {
-  animation: pulse 1.2s ease-in-out infinite;
+  animation: haze 1.6s ease-in-out infinite;
+}
+
+/* A halo rather than a blink: the dot stays solid while the ring breathes,
+   which reads as ongoing work instead of a flashing indicator. */
+@keyframes haze {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 0 3px rgba(110, 168, 254, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 0 7px rgba(110, 168, 254, 0.25);
+  }
 }
 
 /* ------------------------------------------------------------ composer */

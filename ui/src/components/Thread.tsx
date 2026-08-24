@@ -39,6 +39,11 @@ export function Thread({
   }, [thread.id]);
 
   const isEmpty = thread.messages.length === 0;
+  // While indexing is all there is, centre it rather than pinning it to the
+  // top of an otherwise empty column. Once a question is asked the thread
+  // becomes a normal top-anchored transcript.
+  const onlyIngest =
+    thread.messages.length === 1 && thread.messages[0].kind === "ingest";
 
   return (
     <div
@@ -50,7 +55,7 @@ export function Thread({
           node.scrollHeight - node.scrollTop - node.clientHeight < STICK_THRESHOLD_PX;
       }}
     >
-      <div className="thread-inner">
+      <div className={`thread-inner${onlyIngest ? " thread-inner--centered" : ""}`}>
         {!hasSource && thread.repoId && (
           <p className="notice">
             No local checkout for {thread.repoId} — reading source and grep are

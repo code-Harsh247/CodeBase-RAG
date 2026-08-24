@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { STAGE_LABELS, STAGE_ORDER } from "../ingestStages";
 import type { IngestMsg } from "../state/types";
 
@@ -13,11 +14,20 @@ export function IngestMessage({ message }: { message: IngestMsg }) {
   const current = message.stages[message.stages.length - 1];
   const failed = message.status === "error";
 
+  // The rail fills to the centre of the furthest stage reached, so the line
+  // grows downward as the work progresses rather than jumping per step.
+  const index = current ? STAGE_ORDER.indexOf(current.stage) : -1;
+  const progress =
+    index < 0 ? 0 : ((index + 0.5) / STAGE_ORDER.length) * 100;
+
   return (
     <section className="msg msg--ingest">
       <p className="msg-label">Indexing {message.url}</p>
 
-      <ol className="stages">
+      <ol
+        className={`stages${failed ? " failed" : ""}`}
+        style={{ "--progress": `${progress}%` } as CSSProperties}
+      >
         {STAGE_ORDER.map((stage) => {
           const done = reached.has(stage);
           const active = message.status === "running" && current?.stage === stage;
