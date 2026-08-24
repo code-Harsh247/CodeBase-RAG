@@ -174,6 +174,18 @@ def test_tidy_answer_drops_a_citation_duplicated_on_the_same_line():
     assert _tidy_answer(answer) == "- `is_prepared` – 9 callers (src/_types.py line 47)"
 
 
+def test_tidy_answer_drops_a_parenthesised_duplicate_after_markdown_emphasis():
+    answer = "* `invoke` defined in **src/click/core.py:1401**(src/click/core.py:1401)"
+    # The closing ** must survive, or the emphasis is left unbalanced.
+    assert _tidy_answer(answer) == "* `invoke` defined in **src/click/core.py:1401**"
+
+
+def test_tidy_answer_keeps_two_different_lines_in_the_same_file():
+    # Same path, different lines: two real citations, not a duplicate.
+    answer = "Defined at src/requests/api.py:24 and src/requests/api.py:102."
+    assert _tidy_answer(answer) == answer
+
+
 def test_tidy_answer_keeps_a_lines_only_citation():
     # Nothing earlier in the line names the file, so the citation must survive.
     answer = "- `is_prepared` has 9 callers src/_types.py:47"

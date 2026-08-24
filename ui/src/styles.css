@@ -1,0 +1,433 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1d212a;
+  --border: #262b36;
+  --text: #e6e8ee;
+  --muted: #8b93a7;
+  --accent: #6ea8fe;
+  --accent-dim: #2b4a7d;
+  --green: #64d69f;
+  --amber: #e0b464;
+  --red: #e07a7a;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 6px 0 0;
+  color: var(--muted);
+  max-width: 46ch;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+select,
+input,
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+select {
+  font-size: 13px;
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------- ask form */
+
+.ask {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ask input {
+  flex: 1;
+  padding: 12px 14px;
+}
+
+.ask button {
+  padding: 12px 20px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1020;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ask button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.examples button {
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.examples button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+
+.notice,
+.error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.notice {
+  background: rgba(224, 180, 100, 0.1);
+  border: 1px solid rgba(224, 180, 100, 0.3);
+  color: var(--amber);
+}
+
+.error {
+  background: rgba(224, 122, 122, 0.1);
+  border: 1px solid rgba(224, 122, 122, 0.3);
+  color: var(--red);
+}
+
+/* -------------------------------------------------------------- hop trace */
+
+.trace,
+.answer {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.trace h2,
+.answer h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.trace ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hop-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.hop-head:hover {
+  border-color: var(--accent-dim);
+}
+
+.hop.failed .hop-head {
+  border-color: rgba(224, 122, 122, 0.4);
+}
+
+.tool {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* Each tool gets its own colour so the shape of an investigation is legible
+   at a glance — semantic search first, then a graph query, then reading. */
+.tool-semantic_search {
+  background: rgba(100, 214, 159, 0.15);
+  color: var(--green);
+}
+.tool-read_code {
+  background: rgba(224, 180, 100, 0.15);
+  color: var(--amber);
+}
+.tool-grep {
+  background: rgba(139, 147, 167, 0.15);
+  color: var(--muted);
+}
+
+.argument {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(224, 122, 122, 0.15);
+  color: var(--red);
+}
+
+.badge.subtle {
+  background: transparent;
+  color: var(--muted);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.hop-body {
+  padding: 10px 12px 2px;
+}
+
+.hop-body pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.hop-body .preview {
+  color: var(--muted);
+}
+
+.locations {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.locations code,
+.chips code,
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+
+/* ----------------------------------------------------------------- answer */
+
+.answer p {
+  margin: 0 0 10px;
+}
+
+.answer .gap {
+  height: 6px;
+}
+
+.answer footer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.answer ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.answer li::marker {
+  color: var(--muted);
+}
+
+.answer code {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.answer code.citation {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.answer strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 0 0 12px;
+}
+
+.answer table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.answer th,
+.answer td {
+  text-align: left;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.answer th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.answer tbody tr:last-child td {
+  border-bottom: none;
+}

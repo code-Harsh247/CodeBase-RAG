@@ -13,6 +13,7 @@ sees the previous results, so a dead end is recoverable rather than fatal.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from agent.few_shot import render_examples
@@ -160,10 +161,15 @@ class MultiHopAgent:
         provider: LLMProvider,
         tools: RetrievalTools,
         max_hops: int = MAX_HOPS,
+        on_hop: Callable[[int, Hop], None] | None = None,
     ) -> None:
         self.provider = provider
         self.tools = tools
         self.max_hops = max_hops
+        #: Called as each hop completes. The investigation is the interesting
+        #: part to watch, and a caller that renders it live (the web UI) should
+        #: not have to wait for the final answer to show anything.
+        self.on_hop = on_hop
 
     def _initial_messages(self, question: str) -> list[Message]:
         # This block is re-sent on every hop, so its size multiplies by the hop
@@ -228,6 +234,8 @@ class MultiHopAgent:
                 hop = self._dispatch(call)
                 result.hops.append(hop)
                 logger.info("hop %d: %s", hop_number, hop.summary())
+                if self.on_hop is not None:
+                    self.on_hop(hop_number, hop)
                 messages.append(
                     Message(role="tool", content=hop.result, tool_call_id=call.id)
                 )

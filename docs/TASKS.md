@@ -168,7 +168,7 @@ The multi-hop agent is where the thesis is actually earned: 95% accuracy, zero o
 
 ## Phase 5 — Stretch (time permitting)
 
-- [ ] Minimal React chat UI replacing Streamlit, showing tool-call trace per PRD transparency NFR
+- [x] React UI (`ui/`) + FastAPI backend (`api/server.py`), showing the retrieval trace live per the PRD transparency NFR. Answers stream over SSE: each hop is pushed as it completes, so the investigation is watchable rather than hidden behind a spinner. Streamlit was skipped entirely — it was only ever the MVP placeholder and the React path was the documented stretch target.
 - [ ] Hosted demo: Neo4j AuraDB free tier + backend on a free-tier host
 - [ ] Return-value type inference (the largest known resolution gap — see ARCHITECTURE.md)
 - [ ] A second language, if and only if the Python path is fully done and measured — this is the one place the "language-agnostic schema" claim gets proven rather than argued

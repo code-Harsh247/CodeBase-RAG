@@ -110,6 +110,22 @@ A local directory works anywhere a URL does, which is handy for testing:
 python cli.py ingest ./some/local/checkout
 ```
 
+## Web UI
+
+A React interface that shows the agent investigating, rather than a spinner. Each retrieval step streams in as it happens — which tool ran, the exact Cypher or search query, and the source locations it surfaced — so the answer arrives with its evidence attached.
+
+Two processes, in separate terminals:
+
+```bash
+uvicorn api.server:app --port 8000
+```
+
+```bash
+cd ui && npm install && npm run dev
+```
+
+Then open http://localhost:5173. The repository picker lists whatever you have ingested; the retrieval mode toggle switches between the multi-hop agent and the single-query path, which makes the difference between them visible directly.
+
 ## Results
 
 22 hand-verified questions over `psf/requests`, three systems scored on identical inputs — same LLM, same embedding model, same grader — so the gap reflects retrieval strategy, not model choice. Full methodology: [docs/ARCHITECTURE.md §2.6](docs/ARCHITECTURE.md).

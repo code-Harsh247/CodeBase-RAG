@@ -195,19 +195,39 @@ _TRAILING_CITATIONS = re.compile(r"(?:[ \t]+[\w./\\-]+:\d+){3,}[ \t]*$", re.MULT
 _ZERO_LINE_CITATION = re.compile(r"([\w./\\-]+\.\w+):0\b")
 
 
-#: A single bare citation tacked onto the end of a line, e.g.
-#: "... (src/x.py line 47) src/x.py:47". Only removed when that same path
-#: already appears earlier in the line, so a line whose only citation is at the
-#: end keeps it.
-_TRAILING_ONE_CITATION = re.compile(r"[ \t]+([\w./\\-]+\.\w+):\d+[ \t]*$")
+#: A single citation tacked onto the end of a line, e.g.
+#: "... (src/x.py line 47) src/x.py:47" or "... **src/x.py:47**(src/x.py:47)".
+#: Allows the surrounding brackets and markdown emphasis the model tends to add.
+#: Only removed when that same path already appears earlier in the line, so a
+#: line whose only citation is at the end keeps it.
+#: The opening bracket class deliberately excludes `*`: consuming it would eat
+#: the closing emphasis of a preceding `**path**` and leave unbalanced markdown.
+_TRAILING_ONE_CITATION = re.compile(
+    r"[ \t]*[(\[]*\s*([\w./\\-]+\.\w+):(\d+)[)\]*.,]*[ \t]*$"
+)
 
 
 def _drop_duplicate_citation(line: str) -> str:
+    """Drop a trailing citation that repeats one already made on the same line.
+
+    Both the file *and* the line number have to match. Comparing paths alone
+    would collapse "defined at api.py:24 and api.py:102" into a single
+    citation, losing a real one.
+    """
     match = _TRAILING_ONE_CITATION.search(line)
     if match is None:
         return line
+
     head = line[: match.start()]
-    return head if match.group(1) in head else line
+    path, line_number = match.group(1), match.group(2)
+
+    if f"{path}:{line_number}" in head:
+        return head
+    # The earlier mention may be prose ("(api.py line 47)") rather than a
+    # citation, which is still the same location said twice.
+    if path in head and re.search(rf"\b{re.escape(line_number)}\b", head):
+        return head
+    return line
 
 
 #: GPT-OSS wraps citations in CJK lenticular brackets no matter what the prompt
