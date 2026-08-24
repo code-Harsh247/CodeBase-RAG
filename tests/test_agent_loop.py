@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from conftest import FakeNeo4j, FakeProvider
+from conftest import ChunkedProvider, FakeNeo4j, FakeProvider
 
 from agent.agent_loop import TOOL_SPECS, Hop, MultiHopAgent
 from agent.provider import LLMResponse, ToolCall
@@ -189,6 +189,39 @@ def test_the_schema_and_examples_are_in_the_system_prompt():
     assert system.role == "system"
     assert "GRAPH SCHEMA" in system.content
     assert "$repo_id" in system.content
+
+
+def test_answer_deltas_are_forwarded_in_order_and_match_the_final_answer():
+    # The trailing space is part of the fixture: the concatenation must equal
+    # the pre-tidy text exactly, gaps and all — chunk boundaries are arbitrary.
+    provider = ChunkedProvider(
+        turns=[_text_turn("Retries live in HTTPAdapter.send api.py:12.")],
+        chunks=["Retries live ", "in HTTPAdapter.send", " api.py:12."],
+    )
+    received: list[str] = []
+    result = MultiHopAgent(provider, FakeTools(), on_answer_delta=received.append).answer("q")
+
+    assert received == ["Retries live ", "in HTTPAdapter.send", " api.py:12."]
+    assert "".join(received) == "Retries live in HTTPAdapter.send api.py:12."
+    assert result.answer == "Retries live in HTTPAdapter.send api.py:12."
+
+
+def test_answer_deltas_still_flow_through_tool_hops_before_the_final_turn():
+    provider = ChunkedProvider(
+        turns=[
+            _tool_turn("graph_query", {"cypher": VALID_CYPHER}),
+            _text_turn("Found it."),
+        ],
+        chunks=["Found ", "it."],
+    )
+    received: list[str] = []
+    result = MultiHopAgent(
+        provider, FakeTools(), on_answer_delta=received.append
+    ).answer("what calls send?")
+
+    assert received == ["Found ", "it."]
+    assert result.answer == "Found it."
+    assert len(result.hops) == 1
 
 
 def test_graph_query_tool_enforces_the_cypher_guard():

@@ -10,6 +10,7 @@ export type Action =
   | { type: "ingestDone"; threadId: string; messageId: string; summary: DoneEvent }
   | { type: "askStarted"; threadId: string; userId: string; assistantId: string; text: string }
   | { type: "hopReceived"; threadId: string; messageId: string; hop: HopEvent }
+  | { type: "answerDelta"; threadId: string; messageId: string; text: string }
   | { type: "answerReceived"; threadId: string; messageId: string; answer: AssistantMsg["answer"] }
   | { type: "runFailed"; threadId: string; messageId: string; message: string }
   | { type: "runAborted"; threadId: string; messageId: string }
@@ -130,6 +131,7 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
             createdAt: now,
             questionId: action.userId,
             hops: [],
+            streamingText: "",
             answer: null,
             error: null,
             status: "running",
@@ -141,14 +143,28 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
     case "hopReceived":
       return patchMessage(store, action.threadId, action.messageId, (message) =>
         message.kind === "assistant"
-          ? { ...message, hops: [...message.hops, action.hop] }
+          ? // A tool-calling turn often narrates a sentence or two before the
+            // call ("Let me check X…") and that text streams in exactly like
+            // the real answer does — there is no way to tell them apart while
+            // it's arriving. Once the hop lands, that turn is over and its
+            // narration is spent (it went into tool-call history, not the
+            // answer), so clear it here rather than letting it and every
+            // later turn's narration glue together into one runaway string.
+            { ...message, hops: [...message.hops, action.hop], streamingText: "" }
+          : message,
+      );
+
+    case "answerDelta":
+      return patchMessage(store, action.threadId, action.messageId, (message) =>
+        message.kind === "assistant"
+          ? { ...message, streamingText: message.streamingText + action.text }
           : message,
       );
 
     case "answerReceived":
       return patchMessage(store, action.threadId, action.messageId, (message) =>
         message.kind === "assistant"
-          ? { ...message, answer: action.answer, status: "done" }
+          ? { ...message, answer: action.answer, streamingText: "", status: "done" }
           : message,
       );
 

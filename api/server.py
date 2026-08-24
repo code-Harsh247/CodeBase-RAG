@@ -196,12 +196,16 @@ def _stream_answer(request: QueryRequest) -> Iterator[str]:
                             }
                         )
                 else:
+
+                    def on_answer_delta(text: str) -> None:
+                        events.put({"type": "answer_delta", "text": text})
+
                     tools = RetrievalTools(
                         client, request.repo_id, repo_path=_repo_path(request.repo_id)
                     )
-                    result = MultiHopAgent(provider, tools, on_hop=on_hop).answer(
-                        request.question
-                    )
+                    result = MultiHopAgent(
+                        provider, tools, on_hop=on_hop, on_answer_delta=on_answer_delta
+                    ).answer(request.question)
                 events.put(
                     {
                         "type": "answer",

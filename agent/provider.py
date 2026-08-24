@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -56,6 +57,22 @@ class LLMResponse:
             output_tokens=self.output_tokens + other.output_tokens,
             reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
         )
+
+
+@dataclass
+class TextDelta:
+    """One fragment of visible text as it arrives from a streamed turn."""
+
+    text: str
+
+
+@dataclass
+class StreamComplete:
+    """Terminates a stream. Carries the same `LLMResponse` a blocking call
+    would have returned — callers that don't care about incremental delivery
+    can ignore every `TextDelta` and just collect this."""
+
+    response: LLMResponse
 
 
 @dataclass
@@ -119,6 +136,23 @@ class LLMProvider(ABC):
 
         Returns either text (the agent is done) or tool calls to execute and
         feed back as ``tool`` messages.
+        """
+
+    @abstractmethod
+    def converse_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        *,
+        max_tokens: int = 2048,
+        effort: Effort = "medium",
+    ) -> Iterator[TextDelta | StreamComplete]:
+        """Streamed form of :meth:`converse`.
+
+        Whether this turn ends in tool calls or a text answer is not known
+        until it completes, so every turn streams the same way; a caller
+        watching for narration should forward ``TextDelta`` as it arrives and
+        not assume the turn will end in text until ``StreamComplete`` says so.
         """
 
 

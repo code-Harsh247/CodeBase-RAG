@@ -103,6 +103,8 @@ export function useThreadStore() {
         (event) => {
           if (event.type === "hop") {
             dispatch({ type: "hopReceived", threadId, messageId: assistantId, hop: event });
+          } else if (event.type === "answer_delta") {
+            dispatch({ type: "answerDelta", threadId, messageId: assistantId, text: event.text });
           } else if (event.type === "answer") {
             dispatch({
               type: "answerReceived",

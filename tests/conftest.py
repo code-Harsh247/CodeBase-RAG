@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.provider import LLMProvider, LLMResponse
+from agent.provider import LLMProvider, LLMResponse, StreamComplete, TextDelta
 from graph.schema import EdgeType, NodeType
 from ingestion.pipeline import parse_repository
 from ingestion.repo import local_repo
@@ -45,6 +45,44 @@ class FakeProvider(LLMProvider):
         if self.turns:
             return self.turns.pop(0)
         return LLMResponse(text=self.answer, model="fake", input_tokens=30, output_tokens=10)
+
+    def converse_stream(self, messages, tools, *, max_tokens=2048, effort="medium"):
+        """Wraps `converse` as a single-chunk stream — enough for tests that
+        don't care about incremental delivery. `ChunkedProvider` below scripts
+        genuine multi-chunk streams where that matters."""
+        response = self.converse(messages, tools, max_tokens=max_tokens, effort=effort)
+        if response.text:
+            yield TextDelta(response.text)
+        yield StreamComplete(response)
+
+
+class ChunkedProvider(FakeProvider):
+    """A FakeProvider whose final text-only turn streams in scripted pieces.
+
+    `chunks` are the deltas for the *last* turn in `turns` (the one with no
+    tool_calls); every earlier turn streams as a single chunk, same as the
+    base class.
+    """
+
+    def __init__(self, *args, chunks: list[str], **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.chunks = list(chunks)
+        self.delta_calls: list[str] = []
+
+    def converse_stream(self, messages, tools, *, max_tokens=2048, effort="medium"):
+        self.conversations.append(list(messages))
+        response = self.turns.pop(0) if self.turns else LLMResponse(
+            text=self.answer, model="fake", input_tokens=30, output_tokens=10
+        )
+        if not response.tool_calls and self.chunks:
+            for piece in self.chunks:
+                self.delta_calls.append(piece)
+                yield TextDelta(piece)
+            yield StreamComplete(response)
+            return
+        if response.text:
+            yield TextDelta(response.text)
+        yield StreamComplete(response)
 
 
 class FakeNeo4j:

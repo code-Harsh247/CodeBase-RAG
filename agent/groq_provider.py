@@ -11,10 +11,19 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 
 from groq import Groq
 
-from agent.provider import Effort, LLMProvider, LLMResponse, Message, ToolCall
+from agent.provider import (
+    Effort,
+    LLMProvider,
+    LLMResponse,
+    Message,
+    StreamComplete,
+    TextDelta,
+    ToolCall,
+)
 
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 
@@ -124,7 +133,11 @@ class GroqProvider(LLMProvider):
         details = getattr(usage, "completion_tokens_details", None)
 
         calls = [
-            ToolCall(id=call.id, name=call.function.name, arguments=_parse_args(call))
+            ToolCall(
+                id=call.id,
+                name=call.function.name,
+                arguments=_parse_args(call.function.arguments),
+            )
             for call in (choice.message.tool_calls or [])
         ]
         return LLMResponse(
@@ -136,13 +149,80 @@ class GroqProvider(LLMProvider):
             tool_calls=calls,
         )
 
+    def converse_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        *,
+        max_tokens: int = 2048,
+        effort: Effort = "medium",
+    ) -> Iterator[TextDelta | StreamComplete]:
+        stream = self._client.chat.completions.create(
+            model=self.model,
+            messages=[_to_wire(message) for message in messages],
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=max_tokens,
+            reasoning_effort=effort,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
 
-def _parse_args(call) -> dict:
+        text_parts: list[str] = []
+        # Tool-call fragments arrive split across chunks, keyed by index: the
+        # id and function name each show up once, `arguments` is concatenated
+        # across every chunk that carries a piece of it.
+        pending_calls: dict[int, dict] = {}
+        model_name = self.model
+        usage = None
+
+        for chunk in stream:
+            if chunk.usage is not None:
+                usage = chunk.usage
+            if not chunk.choices:
+                continue
+            if chunk.model:
+                model_name = chunk.model
+            delta = chunk.choices[0].delta
+
+            if delta.content:
+                text_parts.append(delta.content)
+                yield TextDelta(delta.content)
+
+            for tc in delta.tool_calls or []:
+                slot = pending_calls.setdefault(
+                    tc.index, {"id": None, "name": None, "arguments": ""}
+                )
+                if tc.id:
+                    slot["id"] = tc.id
+                if tc.function and tc.function.name:
+                    slot["name"] = tc.function.name
+                if tc.function and tc.function.arguments:
+                    slot["arguments"] += tc.function.arguments
+
+        calls = [
+            ToolCall(id=slot["id"], name=slot["name"], arguments=_parse_args(slot["arguments"]))
+            for _, slot in sorted(pending_calls.items())
+        ]
+        details = getattr(usage, "completion_tokens_details", None) if usage else None
+        yield StreamComplete(
+            LLMResponse(
+                text="".join(text_parts),
+                model=model_name,
+                input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+                output_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
+                reasoning_tokens=(getattr(details, "reasoning_tokens", 0) or 0) if details else 0,
+                tool_calls=calls,
+            )
+        )
+
+
+def _parse_args(raw: str | None) -> dict:
     """Tool arguments arrive as a JSON string and may be malformed."""
     try:
-        return json.loads(call.function.arguments or "{}")
+        return json.loads(raw or "{}")
     except json.JSONDecodeError:
-        return {"__malformed__": call.function.arguments}
+        return {"__malformed__": raw}
 
 
 def _to_wire(message: Message) -> dict:

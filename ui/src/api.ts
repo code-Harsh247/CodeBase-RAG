@@ -14,6 +14,11 @@ export interface HopEvent {
   preview: string;
 }
 
+export interface AnswerDeltaEvent {
+  type: "answer_delta";
+  text: string;
+}
+
 export interface AnswerEvent {
   type: "answer";
   answer: string;
@@ -26,7 +31,7 @@ export interface ErrorEvent {
   message: string;
 }
 
-export type StreamEvent = HopEvent | AnswerEvent | ErrorEvent;
+export type StreamEvent = HopEvent | AnswerDeltaEvent | AnswerEvent | ErrorEvent;
 
 export interface ProgressEvent {
   type: "progress";
@@ -116,7 +121,10 @@ export async function deleteRepo(repoId: string): Promise<void> {
   }
 }
 
-/** Ask a question; `onEvent` fires per retrieval hop, then once with the answer. */
+/**
+ * Ask a question; `onEvent` fires per retrieval hop, then per text fragment as
+ * the answer streams in, then once more with the complete, cleaned-up answer.
+ */
 export function streamQuery(
   body: { repo_id: string; question: string; mode?: Mode },
   onEvent: (event: StreamEvent) => void,

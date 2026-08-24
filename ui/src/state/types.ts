@@ -27,6 +27,12 @@ export interface AssistantMsg {
   /** The UserMsg this answers, so a retry can be tied back to its question. */
   questionId: string;
   hops: HopEvent[];
+  /**
+   * Raw text accumulated from `answer_delta` events while the run is still in
+   * progress. Replaced by `answer` once the server's cleaned-up version
+   * arrives — see the `answerReceived` reducer case, which clears it.
+   */
+  streamingText: string;
   answer: {
     text: string;
     locations: string[];

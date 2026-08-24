@@ -192,8 +192,21 @@
   }
 }
 
+/* The streamed answer's in-progress marker — sits right after the last
+   rendered character, same pulse as `.dot` so the two read as one idiom. */
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .dot {
+  .dot,
+  .stream-cursor {
     animation: none;
   }
 }

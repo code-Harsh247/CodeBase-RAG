@@ -17,7 +17,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from agent.few_shot import render_examples
-from agent.provider import LLMProvider, Message, ToolCall, Usage
+from agent.provider import (
+    Effort,
+    LLMProvider,
+    LLMResponse,
+    Message,
+    StreamComplete,
+    TextDelta,
+    ToolCall,
+    Usage,
+)
 from agent.query_agent import _tidy_answer
 from agent.schema_prompt import schema_description
 from retrieval.locations import Location, dedupe
@@ -162,6 +171,7 @@ class MultiHopAgent:
         tools: RetrievalTools,
         max_hops: int = MAX_HOPS,
         on_hop: Callable[[int, Hop], None] | None = None,
+        on_answer_delta: Callable[[str], None] | None = None,
     ) -> None:
         self.provider = provider
         self.tools = tools
@@ -170,6 +180,32 @@ class MultiHopAgent:
         #: part to watch, and a caller that renders it live (the web UI) should
         #: not have to wait for the final answer to show anything.
         self.on_hop = on_hop
+        #: Called with each fragment of text as a turn generates it. Every turn
+        #: streams (see `_converse`) since whether it ends in a tool call or a
+        #: final answer is not known until it completes; on the models this
+        #: project targets a turn never mixes narration with a tool call, so a
+        #: forwarded fragment always turns out to belong to the final answer.
+        self.on_answer_delta = on_answer_delta
+
+    def _converse(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        *,
+        max_tokens: int,
+        effort: Effort,
+    ) -> LLMResponse:
+        final: LLMResponse | None = None
+        for event in self.provider.converse_stream(
+            messages, tools, max_tokens=max_tokens, effort=effort
+        ):
+            if isinstance(event, TextDelta):
+                if self.on_answer_delta is not None:
+                    self.on_answer_delta(event.text)
+            elif isinstance(event, StreamComplete):
+                final = event.response
+        assert final is not None, "provider stream ended without StreamComplete"
+        return final
 
     def _initial_messages(self, question: str) -> list[Message]:
         # This block is re-sent on every hop, so its size multiplies by the hop
@@ -216,7 +252,7 @@ class MultiHopAgent:
         result = AgentResult(question=question, answer="")
 
         for hop_number in range(1, self.max_hops + 1):
-            response = self.provider.converse(
+            response = self._converse(
                 messages, TOOL_SPECS, max_tokens=TURN_MAX_TOKENS, effort="medium"
             )
             result.usage.record(f"hop#{hop_number}", response)
@@ -252,7 +288,7 @@ class MultiHopAgent:
                 ),
             )
         )
-        final = self.provider.converse(messages, [], max_tokens=TURN_MAX_TOKENS, effort="low")
+        final = self._converse(messages, [], max_tokens=TURN_MAX_TOKENS, effort="low")
         result.usage.record("final", final)
         result.answer = _tidy_answer(final.text) or (
             f"I could not answer within {self.max_hops} investigation steps. "
