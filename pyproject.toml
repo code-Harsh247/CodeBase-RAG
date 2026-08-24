@@ -30,7 +30,10 @@ eval-fallback = [
 ]
 
 [project.scripts]
-codegraph = "ingestion.cli:main"
+codegraph = "cli:main"
+
+[tool.setuptools]
+py-modules = ["cli"]
 
 [tool.ruff]
 line-length = 100

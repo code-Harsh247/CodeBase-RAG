@@ -49,19 +49,29 @@ correct on spot-checks against source. Known limitations are documented in
 
 Goal: ask a question in English, get an answer grounded in one graph query — no multi-hop yet.
 
-- [ ] `LLMProvider` interface (`generate`, plus a structured-output variant) — see ARCHITECTURE.md §2.4a
-- [ ] Groq provider implementation (default: GPT-OSS 120B), reading `GROQ_API_KEY` from env
-- [ ] Schema reference doc for prompting (auto-generated from the schema mapper, not hand-maintained twice)
-- [ ] Few-shot example set (question → correct Cypher) covering common patterns (callers, callees, inheritance, imports)
-- [ ] `graph_query(cypher)` tool: executes against Neo4j
-- [ ] Cypher validation: reject writes/deletes, syntax-check before execution
-- [ ] Single LLM call: question + schema + few-shot → Cypher generation
-- [ ] Result formatting: Neo4j query results → readable text for the synthesis step
-- [ ] Answer synthesis call: results → final answer with `file:line` citations
-- [ ] Basic CLI/API endpoint (`query <repo_id> <question>`) wiring it end-to-end
-- [ ] Smoke-test against ~10 manually written questions on the Phase 1 test repo
+- [x] `LLMProvider` interface (`generate`, plus a structured-output variant) — see ARCHITECTURE.md §2.4a
+- [x] Groq provider implementation (default: GPT-OSS 120B), reading `GROQ_API_KEY` from env
+- [x] Schema reference doc for prompting (auto-generated from the schema mapper, not hand-maintained twice)
+- [x] Few-shot example set (question → correct Cypher) covering common patterns (callers, callees, inheritance, imports)
+- [x] `graph_query(cypher)` tool: executes against Neo4j
+- [x] Cypher validation: reject writes/deletes, syntax-check before execution
+- [x] Single LLM call: question + schema + few-shot → Cypher generation
+- [x] Retry loop: feed validation/database errors back to the model (bounded attempts)
+- [x] Result formatting: Neo4j query results → readable text for the synthesis step
+- [x] Answer synthesis call: results → final answer with `file:line` citations
+- [x] Basic CLI/API endpoint (`query <repo_id> <question>`) wiring it end-to-end
+- [x] Smoke-test against ~10 manually written questions on the Phase 1 test repo
 
-**Exit criteria:** correct answers (with citations) to single-hop structural questions via natural language, end-to-end through the API.
+**Exit criteria:** correct answers (with citations) to single-hop structural questions via natural language, end-to-end through the API. ✅
+
+Smoke test on `psf/requests`, 10 questions: **10/10 produced valid, executable
+Cypher and non-empty results**, 2 needed one retry each (the error-feedback loop
+recovered both). ~2,100-4,500 tokens per question across 2-3 LLM calls.
+
+Safety verified against the live database: write clauses (`DETACH DELETE`,
+`SET`, `DROP`) and unscoped queries are all rejected before execution, node
+count unchanged. A question asking the agent to delete data is refused rather
+than answered.
 
 ---
 

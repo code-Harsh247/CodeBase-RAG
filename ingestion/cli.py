@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import sys
-
-from dotenv import load_dotenv
 
 from graph.neo4j_client import Neo4jClient
 from graph.schema import SHARED_LABEL
 from ingestion.pipeline import ingest
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="codegraph", description="Codebase knowledge graph")
-    parser.add_argument("-v", "--verbose", action="store_true", help="enable debug logging")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
+def register(subparsers) -> dict:
+    """Add ingestion commands to a shared parser. Returns command -> handler."""
     ingest_parser = subparsers.add_parser("ingest", help="ingest a GitHub URL or local directory")
     ingest_parser.add_argument("source", help="GitHub URL or path to a local checkout")
     ingest_parser.add_argument("--include-tests", action="store_true", help="index test directories")
@@ -31,7 +24,7 @@ def _build_parser() -> argparse.ArgumentParser:
     stats_parser = subparsers.add_parser("stats", help="node and edge counts for a repo")
     stats_parser.add_argument("repo_id", help="e.g. owner/name")
 
-    return parser
+    return {"ingest": _cmd_ingest, "cypher": _cmd_cypher, "stats": _cmd_stats}
 
 
 def _cmd_ingest(args) -> int:
@@ -73,16 +66,10 @@ def _cmd_stats(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    load_dotenv()
-    args = _build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
-    # "index already exists" on every re-ingest drowns out the summary.
-    logging.getLogger("neo4j.notifications").setLevel(logging.WARNING)
-    handlers = {"ingest": _cmd_ingest, "cypher": _cmd_cypher, "stats": _cmd_stats}
-    return handlers[args.command](args)
+    """Kept so `python -m ingestion.cli` still works; `cli.py` is the full entry point."""
+    from cli import main as unified_main
+
+    return unified_main(argv)
 
 
 if __name__ == "__main__":
