@@ -126,21 +126,16 @@ body {
   flex-direction: column;
   gap: 2px;
   min-height: 0;
+  container-type: inline-size;
 }
 
 .project {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
+  min-width: 0;
   border-radius: 8px;
-  padding: 9px 12px;
   color: var(--text);
-  font: inherit;
-  cursor: pointer;
 }
 
 .project:hover {
@@ -156,6 +151,26 @@ body {
   opacity: 0.55;
 }
 
+.project.busy {
+  opacity: 0.6;
+}
+
+.project-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 4px 9px 12px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .project-name {
   flex: 1;
   min-width: 0;
@@ -163,6 +178,43 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
+}
+
+/* The node count is the first thing to go when space is tight — the name
+   matters more than the number. */
+.project-open .count {
+  flex-shrink: 0;
+}
+
+@container (max-width: 200px) {
+  .project-open .count {
+    display: none;
+  }
+}
+
+/* Revealed on hover or keyboard focus, so the list stays quiet at rest but
+   the control is still reachable without a mouse. */
+.project-delete {
+  flex-shrink: 0;
+  opacity: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.project:hover .project-delete,
+.project-delete:focus-visible {
+  opacity: 1;
+}
+
+.project-delete:hover {
+  color: var(--red);
+  background: rgba(224, 122, 122, 0.12);
 }
 
 .empty-hint,
@@ -629,11 +681,34 @@ body {
   }
 }
 
+/* Narrow viewports: the sidebar overlays rather than taking a grid track.
+   Giving it a track here would squeeze the main column to nothing — the
+   conversation is the point, so it keeps the full width and the sidebar
+   slides over it. */
 @media (max-width: 720px) {
-  .shell {
-    --sidebar-w: 0px;
+  .shell,
+  .shell.collapsed {
+    grid-template-columns: 1fr;
   }
-  .shell:not(.collapsed) {
-    --sidebar-w: 100vw;
+
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 5;
+    width: min(280px, 86vw);
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+  }
+
+  .shell:not(.collapsed) .sidebar {
+    transform: none;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+
+  /* The expand affordance is the only way back to the sidebar here, so it
+     must show whenever the drawer is closed, not only when collapsed. */
+  .icon-button.expand {
+    display: block;
   }
 }

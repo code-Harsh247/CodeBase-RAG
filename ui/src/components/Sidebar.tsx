@@ -17,18 +17,22 @@ export function Sidebar({
   activeRepoId,
   open,
   reposError,
+  deleting,
   onToggle,
   onSelect,
   onNew,
+  onDelete,
 }: {
   rows: SidebarRow[];
   activeThreadId: string | null;
   activeRepoId: string | null;
   open: boolean;
   reposError: string;
+  deleting: string | null;
   onToggle: () => void;
   onSelect: (row: SidebarRow) => void;
   onNew: () => void;
+  onDelete: (row: SidebarRow) => void;
 }) {
   return (
     <aside className="sidebar" aria-hidden={!open}>
@@ -54,27 +58,47 @@ export function Sidebar({
           const active = row.thread
             ? row.thread.id === activeThreadId
             : row.repoId === activeRepoId && !activeThreadId;
+          const busy = row.repoId !== null && row.repoId === deleting;
           return (
-            <button
+            <div
               key={row.thread?.id ?? row.repoId ?? row.label}
-              type="button"
               className={[
                 "project",
                 active ? "active" : "",
                 row.available ? "" : "stale",
+                busy ? "busy" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
-              onClick={() => onSelect(row)}
-              title={row.available ? row.label : `${row.label} — no longer indexed`}
             >
-              <span className="project-name">{row.label}</span>
-              {row.running && <span className="dot" />}
-              {!row.available && <span className="badge subtle">not indexed</span>}
-              {row.available && row.nodes !== null && (
-                <span className="muted">{row.nodes.toLocaleString()}</span>
-              )}
-            </button>
+              <button
+                type="button"
+                className="project-open"
+                onClick={() => onSelect(row)}
+                title={row.available ? row.label : `${row.label} — no longer indexed`}
+                disabled={busy}
+              >
+                <span className="project-name">{row.label}</span>
+                {row.running && <span className="dot" />}
+                {!row.available && <span className="badge subtle">not indexed</span>}
+                {row.available && row.nodes !== null && !row.running && (
+                  <span className="muted count">{row.nodes.toLocaleString()}</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="project-delete"
+                // Deleting drops the graph, the embeddings and the clone, so it
+                // is confirmed by the caller rather than fired on one click.
+                onClick={() => onDelete(row)}
+                disabled={busy}
+                title={`Delete ${row.label}`}
+                aria-label={`Delete ${row.label}`}
+              >
+                {busy ? "…" : "×"}
+              </button>
+            </div>
           );
         })}
 

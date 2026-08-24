@@ -103,6 +103,19 @@ async function streamPost<T>(
   }
 }
 
+/**
+ * Permanently remove a repository: its graph nodes, embeddings and clone.
+ *
+ * Deleting only local history would not work — the repository reappears from
+ * /api/repos on the next refresh — so this removes the thing itself.
+ */
+export async function deleteRepo(repoId: string): Promise<void> {
+  const response = await fetch(`/api/repos/${repoId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(`Could not delete ${repoId} (${response.status})`);
+  }
+}
+
 /** Ask a question; `onEvent` fires per retrieval hop, then once with the answer. */
 export function streamQuery(
   body: { repo_id: string; question: string; mode?: Mode },

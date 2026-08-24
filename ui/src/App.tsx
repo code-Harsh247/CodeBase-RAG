@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchRepos, type Repo } from "./api";
+import { deleteRepo, fetchRepos, type Repo } from "./api";
 import { Composer } from "./components/Composer";
 import { Sidebar, type SidebarRow } from "./components/Sidebar";
 import { Thread } from "./components/Thread";
@@ -14,6 +14,7 @@ export default function App() {
   const [reposError, setReposError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
   const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const refreshRepos = useCallback(async () => {
     try {
@@ -61,7 +62,18 @@ export default function App() {
       ) ||
       (!!thread.repoId && indexed.has(thread.repoId));
 
-    const fromThreads = threads.filter(survives).map((thread) => {
+    // Re-indexing a repository creates a second thread for it. Show only the
+    // most recent — `threads` is already sorted by updatedAt, so the first one
+    // seen for a repoId wins and later duplicates are dropped.
+    const seenRepo = new Set<string>();
+    const deduped = threads.filter(survives).filter((thread) => {
+      if (!thread.repoId) return true;
+      if (seenRepo.has(thread.repoId)) return false;
+      seenRepo.add(thread.repoId);
+      return true;
+    });
+
+    const fromThreads = deduped.map((thread) => {
       if (thread.repoId) claimed.add(thread.repoId);
       const repo = thread.repoId ? indexed.get(thread.repoId) : undefined;
       return {
@@ -105,6 +117,43 @@ export default function App() {
     }
   }
 
+  async function removeProject(row: SidebarRow) {
+    const label = row.label;
+    // Irreversible: the graph, the embeddings and the clone all go. Re-adding
+    // means re-indexing from scratch, so ask first.
+    const confirmed = window.confirm(
+      `Delete ${label}?
+
+This removes its graph, embeddings, cloned source and chat history. Re-adding it means indexing again.`,
+    );
+    if (!confirmed) return;
+
+    // Re-indexing a repository leaves more than one thread for it, and the
+    // sidebar only shows the newest. Deleting the project has to take all of
+    // its history, or the older ones resurface once the visible row is gone.
+    const doomed = new Set<string>();
+    if (row.thread) doomed.add(row.thread.id);
+    if (row.repoId) {
+      for (const thread of Object.values(store.threads)) {
+        if (thread.repoId === row.repoId) doomed.add(thread.id);
+      }
+    }
+    for (const threadId of doomed) {
+      dispatch({ type: "threadRemoved", threadId });
+    }
+
+    if (!row.repoId) return;
+    setDeleting(row.repoId);
+    try {
+      await deleteRepo(row.repoId);
+    } catch (exc) {
+      setReposError(String(exc));
+    } finally {
+      setDeleting(null);
+      await refreshRepos();
+    }
+  }
+
   async function onSubmit(text: string) {
     setTraceMessageId(null);
     if (!activeThread || !activeThread.repoId) {
@@ -136,7 +185,9 @@ export default function App() {
         open={sidebarOpen}
         reposError={reposError}
         onToggle={() => setSidebarOpen((open) => !open)}
+        deleting={deleting}
         onSelect={selectRow}
+        onDelete={(row) => void removeProject(row)}
         onNew={() => {
           setTraceMessageId(null);
           dispatch({ type: "activeThreadSet", threadId: null });

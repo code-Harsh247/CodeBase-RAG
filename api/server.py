@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import queue
+import shutil
+import stat
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -28,6 +31,7 @@ from graph.schema import SHARED_LABEL
 from ingestion.pipeline import ingest
 from ingestion.repo import DEFAULT_CLONE_ROOT, parse_github_url
 from retrieval.tools import RetrievalTools
+from retrieval.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +102,51 @@ def repos() -> dict:
 def _repo_path(repo_id: str) -> Path | None:
     candidate = DEFAULT_CLONE_ROOT / repo_id
     return candidate if candidate.exists() else None
+
+
+def _force_remove(func, path, _exc) -> None:
+    """Clear the read-only bit and retry.
+
+    Git marks files under `.git/objects` read-only, which makes `rmtree` fail
+    on Windows. Passing `ignore_errors` instead would leave the clone on disk
+    and report success, which is worse than failing loudly.
+    """
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+@app.delete("/api/repos/{owner}/{name}")
+def delete_repo(owner: str, name: str) -> dict:
+    """Remove a repository: its graph nodes, its embeddings, and its clone.
+
+    Deleting only the browser's history would not work — the repository would
+    reappear from /api/repos on the next refresh — so this removes the thing
+    itself. It is destructive and irreversible; re-adding means re-indexing.
+    """
+    repo_id = f"{owner}/{name}"
+
+    # `owner` and `name` come from the URL path. Resolve and confirm the result
+    # is still inside the clone root before deleting anything from disk.
+    root = DEFAULT_CLONE_ROOT.resolve()
+    target = (DEFAULT_CLONE_ROOT / owner / name).resolve()
+    if root not in target.parents:
+        raise HTTPException(status_code=400, detail="Invalid repository id")
+
+    with _client() as client:
+        removed = client.delete_repo(repo_id)
+
+    try:
+        VectorStore().drop(repo_id)
+    except Exception as exc:  # noqa: BLE001 - the graph is already gone
+        logger.warning("could not drop embeddings for %s: %s", repo_id, exc)
+
+    source_removed = False
+    if target.is_dir():
+        shutil.rmtree(target, onexc=_force_remove)
+        source_removed = not target.exists()
+
+    logger.info("deleted %s: %d nodes, source=%s", repo_id, removed, source_removed)
+    return {"repo_id": repo_id, "nodes_removed": removed, "source_removed": source_removed}
 
 
 def _event(payload: dict) -> str:
