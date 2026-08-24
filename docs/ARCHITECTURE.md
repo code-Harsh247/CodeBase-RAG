@@ -70,14 +70,18 @@ plus a structured-output variant for schema-constrained generation), not a
 direct SDK call. This is a deliberate boundary, not speculative abstraction —
 the provider actually changes across phases of this project:
 
-- **Default, day-to-day development: Groq (`GPT-OSS 120B`)**, free tier.
-  Limits: 1,000 requests/day, 30 requests/minute, 8,000 tokens/minute, and —
-  **not listed in Groq's published rate-limit table, discovered by hitting it
-  in Phase 3** — a hard **200,000 tokens/day**. That daily cap, not TPM, is
-  the real constraint. A multi-hop question costs 5,000-11,000 tokens, so the
-  free tier affords roughly 20-35 multi-hop questions per day — fine for
-  normal iteration, not enough to run the Phase 4 eval sweep (~30 questions x
-  2 systems) in one sitting.
+- **Default: OpenRouter, pinned to `qwen/qwen3-coder`.** At measured rates a
+  question costs about **$0.005**, so a few dollars of credit covers hundreds
+  of them. This became the default once the web UI existed: Groq's free tier
+  ran out mid-session, which is a worse failure than a fraction of a cent per
+  question.
+- **Free alternative, `--provider groq` (`GPT-OSS 120B`).** Limits: 1,000
+  requests/day, 30 requests/minute, 8,000 tokens/minute, and — **not listed in
+  Groq's published rate-limit table, discovered by hitting it in Phase 3** — a
+  hard **200,000 tokens/day**. That daily cap, not TPM, is the real
+  constraint: a multi-hop question costs 5,000-11,000 tokens, so it affords
+  roughly 20-35 questions a day. Fine for occasional CLI use, not for
+  interactive use or the Phase 4 eval sweep.
 - **Phase 4 scored eval run: a pinned model on OpenRouter, `qwen/qwen3-coder`
   (`agent/openrouter_provider.py`).** OpenRouter passes through the
   underlying provider's price with no markup, and is OpenAI-compatible in

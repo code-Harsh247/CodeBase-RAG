@@ -25,7 +25,7 @@ pip install -e ".[dev]"
 
 Neo4j Browser is then at http://localhost:7474 (default credentials `neo4j` / `changeme123`).
 
-Natural-language querying (Phase 2+) needs a free [Groq](https://console.groq.com) API key in `.env` as `GROQ_API_KEY` — the default LLM provider, chosen over Gemini's free tier (20 requests/day, unworkable) for its much higher quota (1,000/day). The Phase 4 scored eval run instead uses a pinned model on [OpenRouter](https://openrouter.ai/settings/keys) (`OPENROUTER_API_KEY`, `--provider openrouter`) — full reasoning, including what else was tested and rejected along the way, in [docs/ARCHITECTURE.md §2.4a](docs/ARCHITECTURE.md#24a-llm-provider).
+Natural-language querying needs an LLM key in `.env`. The default is [OpenRouter](https://openrouter.ai/settings/keys) (`OPENROUTER_API_KEY`), pinned to `qwen/qwen3-coder` — about **$0.005 a question**, so a few dollars lasts a long time. A free [Groq](https://console.groq.com) key (`GROQ_API_KEY`, then `--provider groq`) also works, but its undocumented 200,000 tokens/day cap affords only 20-40 questions and tends to run out mid-session. Full reasoning, including what else was tested and rejected, in [docs/ARCHITECTURE.md §2.4a](docs/ARCHITECTURE.md#24a-llm-provider).
 
 ## Usage
 
