@@ -19,6 +19,7 @@ from agent.few_shot import render_examples
 from agent.provider import LLMProvider, Message, ToolCall, Usage
 from agent.query_agent import _tidy_answer
 from agent.schema_prompt import schema_description
+from retrieval.locations import Location, dedupe
 from retrieval.tools import RetrievalTools
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,7 @@ class Hop:
     argument: str
     ok: bool
     result: str
+    locations: list[Location] = field(default_factory=list)
 
     def summary(self, width: int = 160) -> str:
         status = "" if self.ok else " [failed]"
@@ -143,6 +145,11 @@ class AgentResult:
     hops: list[Hop] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
     hit_hop_limit: bool = False
+
+    @property
+    def locations(self) -> list[Location]:
+        """Every source location this run put in front of the model."""
+        return dedupe([loc for hop in self.hops for loc in hop.locations])
 
 
 class MultiHopAgent:
@@ -196,7 +203,7 @@ class MultiHopAgent:
             logger.warning("tool %s raised", call.name, exc_info=True)
             return Hop(call.name, str(arguments), False, f"Tool failed: {exc}")
 
-        return Hop(call.name, argument, result.ok, result.text)
+        return Hop(call.name, argument, result.ok, result.text, result.locations)
 
     def answer(self, question: str) -> AgentResult:
         messages = self._initial_messages(question)

@@ -8,11 +8,12 @@ a reason to abandon the question.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from graph.schema import SHARED_LABEL
 from retrieval.graph_query import render_rows, run_query
+from retrieval.locations import Location, dedupe, locations_from_rows
 from retrieval.vector_store import VectorStore
 
 MAX_GREP_MATCHES = 30
@@ -36,6 +37,10 @@ RETURN n.qualified_name AS name,
 class ToolResult:
     ok: bool
     text: str
+    #: Source locations this call actually surfaced, taken from structured
+    #: fields rather than parsed back out of ``text``. Used to score retrieval
+    #: quality in the evaluation harness.
+    locations: list[Location] = field(default_factory=list)
 
 
 class RetrievalTools:
@@ -60,7 +65,9 @@ class RetrievalTools:
         if not outcome.ok:
             return ToolResult(False, f"Query rejected: {outcome.error}")
         return ToolResult(
-            True, f"{outcome.row_count} rows.\n{render_rows(outcome.rows)}"
+            True,
+            f"{outcome.row_count} rows.\n{render_rows(outcome.rows)}",
+            locations=dedupe(locations_from_rows(outcome.rows)),
         )
 
     # -------------------------------------------------------- semantic_search
@@ -73,6 +80,7 @@ class RetrievalTools:
             )
 
         blocks = []
+        found: list[Location] = []
         for hit in hits:
             location = f"{hit.file_path}:{hit.start_line}" if hit.start_line else hit.file_path
             block = [f"{hit.qualified_name} ({hit.node_type}, {location})"]
@@ -81,7 +89,8 @@ class RetrievalTools:
                 block.append("  " + " ".join(summary[1:])[:300])
             block.append(f"  {self._neighbourhood(hit.node_id)}")
             blocks.append("\n".join(block))
-        return ToolResult(True, "\n".join(blocks))
+            found.append(Location(file=hit.file_path, start_line=hit.start_line))
+        return ToolResult(True, "\n".join(blocks), locations=dedupe(found))
 
     def _neighbourhood(self, node_id: str) -> str:
         try:
@@ -132,6 +141,7 @@ class RetrievalTools:
             return ToolResult(False, "Source is not available locally.")
 
         blocks = []
+        found: list[Location] = []
         for row in rows:
             path = self.repo_path / row["file"]
             if not path.exists() or not row.get("start"):
@@ -144,10 +154,13 @@ class RetrievalTools:
                 for number, text in enumerate(lines[start:end], start=start + 1)
             )
             blocks.append(f"{row['name']} — {row['file']}:{row['start']}\n{body}")
+            found.append(
+                Location(file=row["file"], start_line=int(row["start"]), end_line=end)
+            )
 
         if not blocks:
             return ToolResult(False, f"Could not read source for {qualified_name!r}.")
-        return ToolResult(True, "\n\n".join(blocks))
+        return ToolResult(True, "\n\n".join(blocks), locations=dedupe(found))
 
     def _read_file(self, path_like: str) -> ToolResult | None:
         """Read a file by repo-relative path; None when it is not one."""
@@ -167,7 +180,10 @@ class RetrievalTools:
         )
         if len(lines) > MAX_SOURCE_LINES:
             body += f"\n… {len(lines) - MAX_SOURCE_LINES} more lines; ask for a symbol instead"
-        return ToolResult(True, f"{path_like}\n{body}")
+        shown_range = Location(
+            file=path_like.replace("\\", "/"), start_line=1, end_line=len(shown)
+        )
+        return ToolResult(True, f"{path_like}\n{body}", locations=[shown_range])
 
     # -------------------------------------------------------------------- grep
 
@@ -181,6 +197,7 @@ class RetrievalTools:
             return ToolResult(False, f"Invalid regular expression: {exc}")
 
         matches: list[str] = []
+        found: list[Location] = []
         for path in sorted(self.repo_path.rglob("*.py")):
             if any(part in {".git", "__pycache__", ".venv"} for part in path.parts):
                 continue
@@ -192,11 +209,13 @@ class RetrievalTools:
             for number, line in enumerate(lines, start=1):
                 if re.search(pattern, line):
                     matches.append(f"{relative}:{number}: {line.strip()[:160]}")
+                    found.append(Location(file=relative, start_line=number))
                     if len(matches) >= MAX_GREP_MATCHES:
                         return ToolResult(
                             True,
                             "\n".join(matches) + f"\n(stopped at {MAX_GREP_MATCHES} matches)",
+                            locations=dedupe(found),
                         )
         if not matches:
             return ToolResult(True, f"No matches for {pattern!r}.")
-        return ToolResult(True, "\n".join(matches))
+        return ToolResult(True, "\n".join(matches), locations=dedupe(found))

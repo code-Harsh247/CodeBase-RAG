@@ -19,6 +19,7 @@ from agent.few_shot import render_examples
 from agent.provider import LLMProvider, Usage
 from agent.schema_prompt import schema_description
 from retrieval.graph_query import QueryOutcome, render_rows, run_query
+from retrieval.locations import Location, dedupe, locations_from_rows
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,13 @@ class QueryResult:
     @property
     def cypher(self) -> str | None:
         return self.outcome.cypher if self.outcome else None
+
+    @property
+    def locations(self) -> list[Location]:
+        """Source locations the executed query surfaced."""
+        if self.outcome is None or not self.outcome.ok:
+            return []
+        return dedupe(locations_from_rows(self.outcome.rows))
 
 
 class QueryAgent:
