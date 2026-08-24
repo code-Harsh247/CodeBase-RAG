@@ -1,9 +1,11 @@
 """LLM provider interface.
 
 The agent never imports a vendor SDK directly. The provider changes across
-phases of this project (Groq for development, a paid fallback reserved for the
-evaluation run), so the boundary earns its keep — see docs/ARCHITECTURE.md
-section 2.4a.
+phases of this project — Groq for day-to-day development, a pinned model on
+OpenRouter for the Phase 4 scored eval run — so the boundary earns its keep.
+See docs/ARCHITECTURE.md section 2.4a for the reasoning and what was tried
+and rejected along the way (Gemini's free tier, OpenRouter's free-model
+router, two local Ollama models).
 """
 
 from __future__ import annotations
@@ -129,6 +131,12 @@ def get_provider(name: str | None = None, model: str | None = None) -> LLMProvid
 
         return GroqProvider(model=model or os.environ.get("LLM_MODEL"))
 
+    if name == "openrouter":
+        from agent.openrouter_provider import OpenRouterProvider
+
+        return OpenRouterProvider(model=model or os.environ.get("OPENROUTER_MODEL"))
+
     raise ValueError(
-        f"Unknown LLM provider {name!r}. Set LLM_PROVIDER to a supported value (groq)."
+        f"Unknown LLM provider {name!r}. Set LLM_PROVIDER to a supported value "
+        f"(groq, openrouter)."
     )

@@ -10,6 +10,7 @@ dependencies = [
     "neo4j>=5.24",
     "chromadb>=0.5",
     "groq>=0.11",
+    "httpx>=0.27",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "streamlit>=1.39",
@@ -22,11 +23,6 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "ruff>=0.7",
-]
-# Reserved fallback provider for the Phase 4 eval run only — see
-# docs/ARCHITECTURE.md §2.4a. Not installed by default.
-eval-fallback = [
-    "anthropic>=0.40",
 ]
 
 [project.scripts]

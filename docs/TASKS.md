@@ -127,7 +127,7 @@ Goal: quantified proof the graph-hybrid approach beats naive RAG.
 - [ ] Build minimal naive-RAG baseline (fixed-size chunk + embed + top-k + LLM answer) — separate, throwaway implementation
 - [ ] Retrieval scoring: precision/recall against ground-truth source locations, for both systems
 - [ ] Answer correctness scoring (LLM-graded or manual, given small set size)
-- [ ] Budget the run against Groq's **200,000 tokens/day** cap (discovered in Phase 3, undocumented by Groq), not just the 8,000 TPM cap. A full sweep over both systems will not fit in one day's free quota — plan to use the reserved paid budget for the scored run, and keep Groq for developing the harness (see ARCHITECTURE.md §2.4a)
+- [x] Provider decision made and implemented: develop the harness on Groq (free, but capped at 200,000 tokens/day — won't fit a full sweep); run the scored eval on `--provider openrouter --model qwen/qwen3-coder`, verified against real questions and under $0.25 for the whole sweep. `agent/openrouter_provider.py`. See ARCHITECTURE.md §2.4a for what else was tested (Gemini, `openrouter/free`, two local Ollama models) and rejected.
 - [ ] Record per-question token cost alongside accuracy: multi-hop costs 2-4x single-shot, so "is the extra retrieval worth it" is part of the result, not a footnote
 - [ ] Run both systems across the full question set, capture results
 - [ ] Results table + analysis (where graph wins, where it doesn't, why)

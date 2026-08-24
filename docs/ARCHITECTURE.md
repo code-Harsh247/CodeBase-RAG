@@ -70,26 +70,59 @@ plus a structured-output variant for schema-constrained generation), not a
 direct SDK call. This is a deliberate boundary, not speculative abstraction —
 the provider actually changes across phases of this project:
 
-- **Default: Groq (`GPT-OSS 120B`)**, free tier. Limits: 1,000 requests/day,
-  30 requests/minute, 8,000 tokens/minute, and — **not listed in Groq's
-  published rate-limit table, discovered by hitting it in Phase 3** — a hard
-  **200,000 tokens/day**. That daily cap, not TPM, is the real constraint.
-  A multi-hop question costs 5,000-11,000 tokens, so the free tier affords
-  roughly **20-35 multi-hop questions per day**, which is not enough to run
-  the Phase 4 eval sweep (~30 questions x 2 systems) even once without
-  planning around it.
-- **Reserved fallback: a paid Anthropic budget (~$5-10), for the Phase 4 eval
-  run only.** Originally held in case TPM pacing made that run slow; the 200k
-  daily cap makes it close to necessary rather than optional, since a single
-  full eval sweep over both systems would consume most or all of a day's free
-  quota, leaving no room to iterate on a bad result. Still unused for
-  day-to-day development.
-- **Rejected: Gemini free tier.** Confirmed at 20 requests/day for Flash
-  models — unusable for iteration, let alone a 200+ call eval run.
+- **Default, day-to-day development: Groq (`GPT-OSS 120B`)**, free tier.
+  Limits: 1,000 requests/day, 30 requests/minute, 8,000 tokens/minute, and —
+  **not listed in Groq's published rate-limit table, discovered by hitting it
+  in Phase 3** — a hard **200,000 tokens/day**. That daily cap, not TPM, is
+  the real constraint. A multi-hop question costs 5,000-11,000 tokens, so the
+  free tier affords roughly 20-35 multi-hop questions per day — fine for
+  normal iteration, not enough to run the Phase 4 eval sweep (~30 questions x
+  2 systems) in one sitting.
+- **Phase 4 scored eval run: a pinned model on OpenRouter, `qwen/qwen3-coder`
+  (`agent/openrouter_provider.py`).** OpenRouter passes through the
+  underlying provider's price with no markup, and is OpenAI-compatible in
+  shape — the same integration pattern as Groq, talked to directly over
+  `httpx` rather than a new SDK dependency. Qwen3 Coder was chosen over
+  cheaper generalist models because its own listing describes it as built for
+  "agentic coding tasks such as function calling, tool use, and long-context
+  reasoning over repositories" — a near-exact match for what this agent does.
+  Verified against the real schema and live questions: it produced correct,
+  properly-scoped Cypher — including the `:Function|Method` label-union rule
+  from the schema prompt — on a question that a candidate local model got
+  wrong (see below). Full eval run cost, at measured per-call pricing:
+  **under $0.25.**
+- **Rejected, each for a concrete reason found by testing:**
+  - **Gemini free tier** — confirmed 20 requests/day, unusable for iteration.
+  - **`openrouter/free`** (the free-model router, not a pinned model) — it
+    selects a model at random per request; tested directly, one call landed
+    on `nvidia/nemotron-3.5-content-safety`, a content-moderation classifier,
+    which answered a plain chat prompt with `"User Safety: safe"`. Unusable,
+    and not just for the scored run — random routing that can hand a coding
+    question to a safety classifier isn't safe for harness development either.
+  - **Ollama, `qwen2.5-coder:7b`** (local, free) — never populates the
+    structured `tool_calls` field on either its native or OpenAI-compatible
+    endpoint; it writes the call as JSON text inside `content` instead. The
+    multi-hop loop depends on that field, so this model cannot drive it
+    without reintroducing exactly the fragile text-parsing the structured
+    provider interface was built to avoid.
+  - **Ollama, `llama3.1:8b`** (local, free) — tool calling *does* work
+    correctly here, but Cypher quality is weaker: asked "which functions have
+    more than 5 callers," it wrote `GROUP f BY f.qualified_name`, which is
+    not valid Cypher, and omitted `repo_id` scoping. Recoverable via the
+    retry loop, but this cost is not neutral — the naive-RAG baseline never
+    has to write Cypher, so a model that struggles at structured generation
+    specifically handicaps graph-hybrid, the system this project exists to
+    argue for. Same real question, correct answer, from Qwen3 Coder.
+  - **Anthropic Haiku 4.5** — the original reserved-budget plan. Not wrong,
+    just superseded: OpenRouter's pass-through pricing on Qwen3 Coder does
+    the same job (a strong pinned model for the scored run) for less, and
+    without a second, unused API key sitting in the codebase.
 
 Every LLM-touching component (the NL→Cypher tool, answer synthesis, the eval
 harness's LLM-graded scoring) goes through the same interface, so the
-provider is a config value, not something threaded through the codebase.
+provider is a config value — `--provider openrouter --model qwen/qwen3-coder`
+on the CLI, or `LLM_PROVIDER`/`OPENROUTER_MODEL` in `.env` — not something
+threaded through the codebase.
 
 ### 2.5 Answer Synthesis
 - Once the agent has enough context, a final LLM call composes the answer, required to cite `file:line` for every factual claim, sourced from the graph node properties (`file_path`, `start_line`, `end_line`) captured at ingestion time.
@@ -222,8 +255,9 @@ language-agnosticism as a design intent, not a proven claim.
 | Python only at MVP | Match code-graph-rag's 13, or the 2 originally planned here | Depth and a working eval story beat shallow breadth for a portfolio piece. The cost is real and worth stating plainly: the schema's language-agnosticism is now a *design property backed by argument*, not one demonstrated by a second implementation. Adding a language remains a well-scoped extension. |
 | Embed summaries, not raw code chunks | Embed raw code | Natural-language descriptions retrieve better against natural-language queries; established technique, not speculative. |
 | Skip eBPF/runtime tracing | Match code-graph-rag | High implementation cost, not central to proving the graph-vs-vector thesis; explicitly deferred in the PRD. |
-| Groq (free) over Gemini (free) or Anthropic (paid) as the default LLM | Gemini free tier; paying for Anthropic throughout | Gemini's confirmed 20 requests/day is unworkable for iteration or eval. Groq's 1,000/day is workable; its 8,000 TPM cap needs pacing during bulk eval but doesn't block the project. Paid-throughout was rejected as unnecessary cost, not held in reserve for the one phase (eval) where quota risk would otherwise contaminate the project's headline result. |
-| A provider interface instead of calling Groq's SDK directly | Direct SDK calls from the agent code | The provider was already expected to change once (Groq for dev, a paid reserve for Phase 4 eval) before a line of agent code was written — that's a concrete reason for the boundary, not speculative future-proofing. |
+| Groq (free) for development, over Gemini (free) or paying throughout | Gemini free tier; paying for a frontier model on every request | Gemini's confirmed 20 requests/day is unworkable for iteration. Groq's 1,000/day (with an undocumented 200k tokens/day ceiling, found in Phase 3) is workable for normal dev, just not for a bulk eval sweep. Paying throughout was rejected as unnecessary cost for the 95% of usage that is iteration, not the scored result. |
+| OpenRouter + pinned `qwen/qwen3-coder`, for the Phase 4 eval run, over Anthropic or OpenRouter's free-model router | Anthropic Haiku 4.5 (reserved budget); `openrouter/free` | Pass-through pricing matches Anthropic's cost with one fewer API key in the project. The free router was tested and rejected outright — it routed one call to a content-safety classifier model. Qwen3 Coder specifically, over other cheap options, because it is built for agentic tool use over code, and it visibly used a schema rule (the `:Function|Method` label union) that a candidate local model ignored on the same question. |
+| A provider interface instead of calling any vendor SDK directly | Direct SDK calls from the agent code | The provider was already expected to change more than once (Groq for dev, a pinned OpenRouter model for eval, plus two rejected local models tested through the same interface) before a line of agent code depended on a specific vendor's shape — a concrete reason for the boundary, not speculative future-proofing. |
 
 ## 8. Open Technical Risks
 
