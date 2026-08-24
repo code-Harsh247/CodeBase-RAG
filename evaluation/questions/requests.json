@@ -109,12 +109,12 @@
       "locations": [
         "src/requests/auth.py:124"
       ],
-      "answer": "HTTPDigestAuth defines six methods: __init__, init_per_thread_state, build_digest_header, handle_redirect, handle_401 and __call__. Unlike HTTPBasicAuth it does not define __eq__ or __ne__.",
+      "answer": "HTTPDigestAuth defines eight methods: __init__, init_per_thread_state, build_digest_header, handle_redirect, handle_401, __call__, __eq__ and __ne__.",
       "must_mention": [
         "build_digest_header",
         "handle_401"
       ],
-      "notes": "build_digest_header contains several nested hash helpers (md5_utf8, sha_utf8, sha256_utf8, sha512_utf8, KD); those are inner functions, not methods of the class."
+      "notes": "build_digest_header contains several nested hash helpers (md5_utf8, sha_utf8, sha256_utf8, sha512_utf8, KD); those are inner functions, not methods of the class. This answer was wrong in the first draft — it claimed the class had no __eq__/__ne__, because the check that produced it stopped at line 340 and those methods start at 345. The scored run caught it by marking a correct system answer as wrong."
     },
     {
       "id": "req-s08",

@@ -122,14 +122,14 @@ warranted needs the graded eval, not row counts.
 
 Goal: quantified proof the graph-hybrid approach beats naive RAG.
 
-- [ ] Pick 2-3 real public Python repos of varying size and layout (flat vs. `src/`) for the eval set
-- [ ] Hand-write ~20-30 ground-truth Q&A pairs (mix of structural, multi-hop, and conceptual questions) with correct source locations
-- [ ] Build minimal naive-RAG baseline (fixed-size chunk + embed + top-k + LLM answer) — separate, throwaway implementation
-- [ ] Retrieval scoring: precision/recall against ground-truth source locations, for both systems
-- [ ] Answer correctness scoring (LLM-graded or manual, given small set size)
+- [x] Eval repo chosen: `psf/requests` (`src/` layout). A second repo is deferred — see the note below on what one run cost in time and money.
+- [x] 22 ground-truth Q&A pairs written from the source (8 structural, 6 multi-hop, 8 conceptual) — `evaluation/questions/requests.json`
+- [x] Naive-RAG baseline: fixed 40-line chunks with overlap, same embedding model and same LLM as the graph systems — `evaluation/baseline.py`
+- [x] Retrieval scoring: recall/precision against ground-truth locations, taken from structured fields rather than parsed from rendered text
+- [x] Answer correctness: LLM-graded against the hand-written reference, same grader and rubric for every system
 - [x] Provider decision made and implemented: develop the harness on Groq (free, but capped at 200,000 tokens/day — won't fit a full sweep); run the scored eval on `--provider openrouter --model qwen/qwen3-coder`, verified against real questions and under $0.25 for the whole sweep. `agent/openrouter_provider.py`. See ARCHITECTURE.md §2.4a for what else was tested (Gemini, `openrouter/free`, two local Ollama models) and rejected.
-- [ ] Record per-question token cost alongside accuracy: multi-hop costs 2-4x single-shot, so "is the extra retrieval worth it" is part of the result, not a footnote
-- [ ] Run both systems across the full question set, capture results
+- [x] Per-question token cost recorded alongside accuracy — the cost gap turned out to be the main caveat on the headline result
+- [x] Full run over all three systems, results in `evaluation/results.json`
 - [ ] Results table + analysis (where graph wins, where it doesn't, why)
 - [ ] Wire eval run into GitHub Actions as a regression check
 - [ ] Write up results in README (this is the artifact recruiters will actually read)

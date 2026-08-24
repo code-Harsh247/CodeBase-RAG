@@ -128,11 +128,57 @@ threaded through the codebase.
 - Once the agent has enough context, a final LLM call composes the answer, required to cite `file:line` for every factual claim, sourced from the graph node properties (`file_path`, `start_line`, `end_line`) captured at ingestion time.
 
 ### 2.6 Evaluation Harness
-- Separate from the runtime system — a CLI/script, not a UI feature.
-- **Ground truth set:** ~20-30 hand-written Q&A pairs across 2-3 real public repos, covering both structural questions (best case for the graph) and conceptual questions (best case for vector search), so the eval doesn't just flatter one retrieval mode.
-- **Baseline:** a minimal naive-RAG implementation (fixed-size chunking + embedding + top-k similarity + LLM answer) built once, purely as the comparison point — not maintained further.
-- **Metrics:** retrieval precision/recall against the ground-truth answer's actual source location(s), plus a pass/fail on final answer correctness (LLM-graded or manually graded for the small set size).
-- **Output:** a results table (per-question and aggregate) checked into the repo and summarized in the README.
+
+Separate from the runtime system — `codegraph eval`, not a UI feature. It scores
+three systems on identical inputs: the naive-RAG baseline, single-shot Cypher
+(Phase 2), and the multi-hop agent (Phase 3).
+
+**What is held constant.** Same questions, same LLM, same embedding model, same
+grader and rubric. If the systems ran on different models a score gap could
+reflect model capability rather than retrieval strategy, and the comparison
+would answer a question nobody asked.
+
+**Ground truth** (`evaluation/questions/`): 22 Q&A pairs written by reading the
+repository and confirming each fact against the source — never by running a
+system and recording what it said, which would measure self-consistency rather
+than correctness. Questions span structural (one relationship lookup),
+multi-hop (a name must be found before the real question can be asked), and
+conceptual (behaviour described, no identifier given) so the set does not
+flatter a single retrieval mode.
+
+**Baseline** (`evaluation/baseline.py`): fixed 40-line chunks with overlap,
+embedded with the *same* model as the graph system, top-k retrieval, same
+answer instructions. Built to be fair rather than a straw man — it should lose
+on relational questions because it cannot follow a relationship, not because it
+was handicapped.
+
+**Metrics**, deliberately independent:
+
+* *Retrieval* — recall and precision against the ground-truth locations,
+  computed mechanically from structured fields (Cypher result columns, semantic
+  hit metadata, the range `read_code` read) rather than scraped from rendered
+  text, which would measure the scraper. Precision matters as much as recall:
+  retrieval breadth fills the model's context with code that does not answer the
+  question.
+* *Answer correctness* — LLM-graded against the reference answer, three-way
+  (correct / partial / wrong). Separate from retrieval because a system can find
+  the right code and still answer badly, and that gap is the interesting part.
+
+**Two shapes of question.** Some have one answer that several locations evidence
+equally well ("what does X call" — either X's body or the callee's definition);
+those are marked `accept_any` and finding one is full credit. Others are
+enumerations ("which classes inherit from X") where each location is a separate
+item. The distinction follows the question's wording. It was added after a
+smoke test showed graph retrieval being marked down for naming a callee's
+definition where a text chunk happened to cover the call site — a bias that
+would have favoured the approach this project argues against, invisible in the
+headline number.
+
+**Robustness.** A run costs real money, so results are written after every
+question, rate limits are waited out rather than raised, and a failed grade
+degrades one question instead of ending the run.
+
+**Output:** `evaluation/results.json` plus tables, summarized in the README.
 
 ## 3. Graph Schema (MVP)
 
