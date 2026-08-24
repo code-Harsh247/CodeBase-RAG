@@ -137,10 +137,6 @@ body {
   opacity: 0.55;
 }
 
-.project.busy {
-  opacity: 0.6;
-}
-
 .project-open {
   flex: 1;
   min-width: 0;

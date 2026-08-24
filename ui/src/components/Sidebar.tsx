@@ -16,7 +16,7 @@ export function Sidebar({
   activeThreadId,
   activeRepoId,
   reposError,
-  deleting,
+  actionError,
   onSelect,
   onNew,
   onDelete,
@@ -25,7 +25,8 @@ export function Sidebar({
   activeThreadId: string | null;
   activeRepoId: string | null;
   reposError: string;
-  deleting: string | null;
+  /** A failed action, shown verbatim — it names the repo and the cause. */
+  actionError: string;
   onSelect: (row: SidebarRow) => void;
   onNew: () => void;
   onDelete: (row: SidebarRow) => void;
@@ -45,7 +46,6 @@ export function Sidebar({
           const active = row.thread
             ? row.thread.id === activeThreadId
             : row.repoId === activeRepoId && !activeThreadId;
-          const busy = row.repoId !== null && row.repoId === deleting;
           return (
             <div
               key={row.thread?.id ?? row.repoId ?? row.label}
@@ -53,7 +53,6 @@ export function Sidebar({
                 "project",
                 active ? "active" : "",
                 row.available ? "" : "stale",
-                busy ? "busy" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -63,7 +62,6 @@ export function Sidebar({
                 className="project-open"
                 onClick={() => onSelect(row)}
                 title={row.available ? row.label : `${row.label} — no longer indexed`}
-                disabled={busy}
               >
                 <span className="project-name">{row.label}</span>
                 {row.running && <span className="dot" />}
@@ -79,11 +77,10 @@ export function Sidebar({
                 // Deleting drops the graph, the embeddings and the clone, so it
                 // is confirmed by the caller rather than fired on one click.
                 onClick={() => onDelete(row)}
-                disabled={busy}
                 title={`Delete ${row.label}`}
                 aria-label={`Delete ${row.label}`}
               >
-                {busy ? "…" : "×"}
+                ×
               </button>
             </div>
           );
@@ -91,6 +88,8 @@ export function Sidebar({
 
         {!rows.length && <p className="muted empty-hint">No projects indexed yet.</p>}
       </nav>
+
+      {actionError && <p className="sidebar-error">{actionError}</p>}
 
       {reposError && (
         <p className="sidebar-error muted">

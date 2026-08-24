@@ -13,7 +13,11 @@ export default function App() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [reposError, setReposError] = useState("");
   const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string[]>([]);
+  // Kept apart from `reposError`: that one means "the server is unreachable"
+  // and makes every row assume-available. A failed delete is a different
+  // thing and must not be reported as a connectivity problem.
+  const [actionError, setActionError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SidebarRow | null>(null);
 
   const refreshRepos = useCallback(async () => {
@@ -45,7 +49,10 @@ export default function App() {
   // here. A thread whose repo has vanished from the graph is kept and marked,
   // never dropped — the transcript is still worth reading.
   const rows: SidebarRow[] = useMemo(() => {
-    const indexed = new Map(repos.map((repo) => [repo.repo_id, repo]));
+    const gone = new Set(removing);
+    const indexed = new Map(
+      repos.filter((repo) => !gone.has(repo.repo_id)).map((repo) => [repo.repo_id, repo]),
+    );
     const threads = Object.values(store.threads).sort((a, b) => b.updatedAt - a.updatedAt);
     const claimed = new Set<string>();
 
@@ -65,6 +72,7 @@ export default function App() {
     // seen for a repoId wins and later duplicates are dropped.
     const seenRepo = new Set<string>();
     const deduped = threads.filter(survives).filter((thread) => {
+      if (thread.repoId && gone.has(thread.repoId)) return false;
       if (!thread.repoId) return true;
       if (seenRepo.has(thread.repoId)) return false;
       seenRepo.add(thread.repoId);
@@ -89,7 +97,7 @@ export default function App() {
     });
 
     const fromServer = repos
-      .filter((repo) => !claimed.has(repo.repo_id))
+      .filter((repo) => !claimed.has(repo.repo_id) && !gone.has(repo.repo_id))
       .map((repo) => ({
         thread: null,
         repoId: repo.repo_id,
@@ -100,7 +108,7 @@ export default function App() {
       }));
 
     return [...fromThreads, ...fromServer];
-  }, [repos, store.threads, store.activeThreadId, reposError]);
+  }, [repos, store.threads, store.activeThreadId, reposError, removing]);
 
   function selectRow(row: SidebarRow) {
     setTraceMessageId(null);
@@ -115,9 +123,19 @@ export default function App() {
     }
   }
 
-  /** Runs only after the dialog is confirmed. */
-  async function removeProject(row: SidebarRow) {
+  /**
+   * Runs only after the dialog is confirmed.
+   *
+   * Optimistic: the row disappears at once and the server call runs behind it.
+   * Deleting touches Neo4j, Chroma and the filesystem, so waiting for it would
+   * leave the row sitting there for a second after the user has already
+   * decided. If the call fails the row comes back and the error is shown —
+   * local history is only discarded once the server has confirmed, so a
+   * failure costs nothing.
+   */
+  function removeProject(row: SidebarRow) {
     setPendingDelete(null);
+    setActionError("");
 
     // Re-indexing a repository leaves more than one thread for it, and the
     // sidebar only shows the newest. Deleting the project has to take all of
@@ -129,20 +147,44 @@ export default function App() {
         if (thread.repoId === row.repoId) doomed.add(thread.id);
       }
     }
-    for (const threadId of doomed) {
-      dispatch({ type: "threadRemoved", threadId });
+
+    const forget = () => {
+      for (const threadId of doomed) dispatch({ type: "threadRemoved", threadId });
+    };
+
+    // If the project being deleted is the one on screen, close it now rather
+    // than leaving its conversation open under a sidebar row that has gone.
+    if (store.activeThreadId && doomed.has(store.activeThreadId)) {
+      setTraceMessageId(null);
+      dispatch({ type: "activeThreadSet", threadId: null });
     }
 
-    if (!row.repoId) return;
-    setDeleting(row.repoId);
-    try {
-      await deleteRepo(row.repoId);
-    } catch (exc) {
-      setReposError(String(exc));
-    } finally {
-      setDeleting(null);
-      await refreshRepos();
+    // A thread with no repoId never reached the server; there is nothing to
+    // call and nothing that can fail.
+    if (!row.repoId) {
+      forget();
+      return;
     }
+
+    const repoId = row.repoId;
+    setRemoving((current) => [...current, repoId]);
+
+    void (async () => {
+      try {
+        await deleteRepo(repoId);
+        forget();
+        await refreshRepos();
+      } catch (exc) {
+        // `deleteRepo` already names the repo and the cause; wrapping it here
+        // just says the same thing twice.
+        setActionError(exc instanceof Error ? exc.message : String(exc));
+      } finally {
+        // On success the repo is already gone from `repos` and its threads are
+        // dropped, so releasing the hold leaves it hidden. On failure it
+        // reappears, which is what should happen.
+        setRemoving((current) => current.filter((item) => item !== repoId));
+      }
+    })();
   }
 
   async function onSubmit(text: string) {
@@ -175,7 +217,7 @@ export default function App() {
         activeThreadId={store.activeThreadId}
         activeRepoId={activeThread?.repoId ?? null}
         reposError={reposError}
-        deleting={deleting}
+        actionError={actionError}
         onSelect={selectRow}
         onDelete={setPendingDelete}
         onNew={() => {
