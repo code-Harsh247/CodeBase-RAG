@@ -56,12 +56,37 @@ Two independent pipelines share the same cloned repo: **ingestion** (build-time,
 - Each vector record carries the graph node ID as metadata, so a vector hit can pull the full graph context (callers, callees, containing class) via a follow-up graph query.
 
 ### 2.4 Query Agent
-- LLM-driven tool-use loop (Claude via Anthropic API) with three tools:
+- LLM-driven tool-use loop, behind a provider interface (see "LLM provider" below), with three tools:
   1. `graph_query(cypher)` — executes a read-only Cypher query against Neo4j. The agent is prompted with the schema + few-shot examples to generate this; queries are validated (read-only, syntactically checked) before execution.
   2. `semantic_search(query)` — embeds the query, returns top-k vector hits with their graph node IDs, then auto-expands each into its immediate graph neighborhood.
   3. `grep_and_read(pattern | file_path)` — last-resort raw text search / file read on the local clone, for anything the structured layers can't resolve.
 - The agent iterates: pick a tool, inspect the result, decide whether it has enough to answer or needs another hop (e.g., "who calls this?" → graph query → "and what does *that* function do?" → another graph query or grep).
 - **Transparency requirement (from PRD NFRs):** every tool call and its raw result is logged and surfaced in the UI, not hidden — this is a feature, not debug noise, since it's the evidence that retrieval is grounded rather than hallucinated.
+
+### 2.4a LLM Provider
+
+The agent talks to the LLM through a small interface (`generate(prompt, tools) -> response`,
+plus a structured-output variant for schema-constrained generation), not a
+direct SDK call. This is a deliberate boundary, not speculative abstraction —
+the provider actually changes across phases of this project:
+
+- **Default: Groq (`GPT-OSS 120B`)**, free tier. Confirmed limits: 1,000
+  requests/day, 30 requests/minute, **8,000 tokens/minute** — the TPM cap is
+  the binding constraint, not RPD. A single interactive question (a 2-4 hop
+  agentic loop) fits comfortably; a full eval sweep (Phase 4, ~200-250 calls)
+  needs small pacing delays between calls to stay under TPM, not a different
+  provider.
+- **Reserved fallback: a paid Anthropic budget (~$5-10), for the Phase 4 eval
+  run only**, if Groq's TPM pacing makes that run impractically slow or if
+  eval results need a stronger-model reference point to sanity-check whether a
+  weak score reflects the retrieval design or the generation model. Not used
+  for day-to-day development.
+- **Rejected: Gemini free tier.** Confirmed at 20 requests/day for Flash
+  models — unusable for iteration, let alone a 200+ call eval run.
+
+Every LLM-touching component (the NL→Cypher tool, answer synthesis, the eval
+harness's LLM-graded scoring) goes through the same interface, so the
+provider is a config value, not something threaded through the codebase.
 
 ### 2.5 Answer Synthesis
 - Once the agent has enough context, a final LLM call composes the answer, required to cite `file:line` for every factual claim, sourced from the graph node properties (`file_path`, `start_line`, `end_line`) captured at ingestion time.
@@ -161,7 +186,7 @@ language-agnosticism as a design intent, not a proven claim.
 | Parsing | tree-sitter (`tree-sitter-python`) | Language-agnostic ASTs, fast, incremental-parse capable for future incremental indexing. Only the Python grammar is wired up. |
 | Graph DB | Neo4j (Community, via Docker) | Industry-recognized, Cypher, Neo4j Browser gives free visualization for demo material. |
 | Vector store | Chroma (dev) / Qdrant (if hosted demo) | Simple local dev story; Qdrant if a hosted stretch demo is built. |
-| LLM | Claude (Anthropic API) | Tool use / agentic loop support, strong code understanding. |
+| LLM | Groq (GPT-OSS 120B), behind a provider interface | Free tier with workable quota (see below); tool-use support; swappable without touching the agent logic. |
 | Backend | Python, FastAPI | Matches tree-sitter/Python ecosystem, easy to expose as an API. |
 | Frontend | Streamlit (MVP) → minimal React chat UI (stretch) | Streamlit gets a working demo fast; upgrade only if time allows and UI polish matters for the portfolio presentation. |
 | Deployment | Docker Compose (Neo4j + backend + vector store) | One-command local setup for reviewers, per PRD NFR. |
@@ -194,8 +219,11 @@ language-agnosticism as a design intent, not a proven claim.
 | Python only at MVP | Match code-graph-rag's 13, or the 2 originally planned here | Depth and a working eval story beat shallow breadth for a portfolio piece. The cost is real and worth stating plainly: the schema's language-agnosticism is now a *design property backed by argument*, not one demonstrated by a second implementation. Adding a language remains a well-scoped extension. |
 | Embed summaries, not raw code chunks | Embed raw code | Natural-language descriptions retrieve better against natural-language queries; established technique, not speculative. |
 | Skip eBPF/runtime tracing | Match code-graph-rag | High implementation cost, not central to proving the graph-vs-vector thesis; explicitly deferred in the PRD. |
+| Groq (free) over Gemini (free) or Anthropic (paid) as the default LLM | Gemini free tier; paying for Anthropic throughout | Gemini's confirmed 20 requests/day is unworkable for iteration or eval. Groq's 1,000/day is workable; its 8,000 TPM cap needs pacing during bulk eval but doesn't block the project. Paid-throughout was rejected as unnecessary cost, not held in reserve for the one phase (eval) where quota risk would otherwise contaminate the project's headline result. |
+| A provider interface instead of calling Groq's SDK directly | Direct SDK calls from the agent code | The provider was already expected to change once (Groq for dev, a paid reserve for Phase 4 eval) before a line of agent code was written — that's a concrete reason for the boundary, not speculative future-proofing. |
 
 ## 8. Open Technical Risks
 
 - Tree-sitter query complexity for accurately resolving `CALLS` edges in a dynamic language (Python's dynamic dispatch, monkey-patching, `getattr`) — likely the hardest correctness problem in the project; scope the eval harness to be honest about known gaps here rather than overclaiming recall. **Phase 1 update:** confirmed as the main source of missed edges; see "Resolution: what works, and what does not" above for the measured breakdown. Return-value type inference is the highest-value remaining improvement.
+- Groq's 8,000 TPM cap during the Phase 4 eval sweep (~200-250 calls in one run) — needs inter-call pacing in the eval harness; if that makes the run impractically slow, fall back to the reserved paid budget for that run only rather than absorbing the slowdown silently.
 - Cypher generation reliability from the LLM — mitigate with strict schema-grounded prompting, few-shot examples, and validation before execution; track failure rate as part of the eval harness, not just success cases.

@@ -25,6 +25,8 @@ pip install -e ".[dev]"
 
 Neo4j Browser is then at http://localhost:7474 (default credentials `neo4j` / `changeme123`).
 
+Natural-language querying (Phase 2+) needs a free [Groq](https://console.groq.com) API key in `.env` as `GROQ_API_KEY` — the default LLM provider, chosen over Gemini's free tier (20 requests/day, unworkable) for its much higher quota (1,000/day). See [docs/ARCHITECTURE.md §2.4a](docs/ARCHITECTURE.md#24a-llm-provider) for the reasoning and the reserved paid fallback used only for the Phase 4 eval run.
+
 ## Usage
 
 Ingest a public repository:

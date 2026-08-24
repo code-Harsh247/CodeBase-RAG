@@ -11,9 +11,9 @@ Phases mirror the PRD milestones. Work top to bottom — each phase should leave
 ## Phase 0 — Project Setup
 
 - [x] Init repo structure (`ingestion/`, `graph/`, `retrieval/`, `agent/`, `evaluation/`, `api/`, `ui/`, `docs/`)
-- [x] `pyproject.toml` with dependencies (tree-sitter, neo4j driver, chromadb, anthropic, fastapi, streamlit)
+- [x] `pyproject.toml` with dependencies (tree-sitter, neo4j driver, chromadb, LLM provider SDK, fastapi, streamlit)
 - [x] `docker-compose.yml`: Neo4j (Community) service + volume
-- [x] `.env.example` (Neo4j URI/credentials, Anthropic API key)
+- [x] `.env.example` (Neo4j URI/credentials, LLM provider API key)
 - [x] Basic README stub (fill in properly at end of Phase 5)
 - [x] GitHub Actions workflow skeleton (lint + test on push, eval run added later)
 
@@ -49,6 +49,8 @@ correct on spot-checks against source. Known limitations are documented in
 
 Goal: ask a question in English, get an answer grounded in one graph query — no multi-hop yet.
 
+- [ ] `LLMProvider` interface (`generate`, plus a structured-output variant) — see ARCHITECTURE.md §2.4a
+- [ ] Groq provider implementation (default: GPT-OSS 120B), reading `GROQ_API_KEY` from env
 - [ ] Schema reference doc for prompting (auto-generated from the schema mapper, not hand-maintained twice)
 - [ ] Few-shot example set (question → correct Cypher) covering common patterns (callers, callees, inheritance, imports)
 - [ ] `graph_query(cypher)` tool: executes against Neo4j
@@ -89,6 +91,7 @@ Goal: quantified proof the graph-hybrid approach beats naive RAG.
 - [ ] Build minimal naive-RAG baseline (fixed-size chunk + embed + top-k + LLM answer) — separate, throwaway implementation
 - [ ] Retrieval scoring: precision/recall against ground-truth source locations, for both systems
 - [ ] Answer correctness scoring (LLM-graded or manual, given small set size)
+- [ ] Pace eval calls to stay under Groq's 8,000 TPM free-tier cap; if that makes the run impractically slow, switch the run to the reserved paid budget instead (see ARCHITECTURE.md §2.4a)
 - [ ] Run both systems across the full question set, capture results
 - [ ] Results table + analysis (where graph wins, where it doesn't, why)
 - [ ] Wire eval run into GitHub Actions as a regression check

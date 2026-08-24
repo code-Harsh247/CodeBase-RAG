@@ -107,6 +107,7 @@ Since this is a portfolio project, "success" = a defensible, demonstrable result
 | Eval results don't clearly favor the graph approach | This is a real possible outcome, not just a risk to "manage" — report it honestly if so; a well-reasoned negative/mixed result is still a legitimate, defensible portfolio artifact. |
 | Scope creep toward matching code-graph-rag's full feature set (13 languages, eBPF tracing) | This PRD's non-goals section is the guardrail; revisit only after MVP + eval results are complete. |
 | Single-language scope reads as thin to a reviewer | Depth is the answer: measured resolution quality, documented limitations, and a real eval beat a shallow language count. Be ready to say why in an interview. |
+| Free-tier LLM quota blocks development or corrupts the eval run | Gemini's free tier (20 requests/day) was ruled out for exactly this reason before any agent code was written. Groq's free tier (1,000/day, 8,000 tokens/min) is the default for development; a small reserved paid budget (~$5-10) backs up the Phase 4 eval run specifically, so the project's headline result is never silently degraded by a quota. See ARCHITECTURE.md §2.4a. |
 
 ## 10. Open Questions
 
