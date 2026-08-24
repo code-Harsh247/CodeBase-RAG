@@ -45,15 +45,21 @@ def module_qname_for(repo_root: Path, file_path: Path) -> str:
     return ".".join([*package_parts, stem])
 
 
-def _child_definitions(node) -> list:
-    """Definitions directly owned by ``node``, not nested inside another definition."""
+def _child_definitions(node, is_overload=None) -> list:
+    """Definitions directly owned by ``node``, not nested inside another definition.
+
+    ``@typing.overload`` stubs are skipped. They declare extra type signatures
+    for a function that is defined again below them, so emitting each one would
+    produce several nodes sharing a qualified name for what is, to anyone asking
+    about the code, a single function.
+    """
     found: list = []
     queue = list(node.children)
     while queue:
         current = queue.pop(0)
         if current.type == "decorated_definition":
             inner = current.child_by_field_name("definition")
-            if inner is not None:
+            if inner is not None and not (is_overload and is_overload(current)):
                 found.append(inner)
             continue
         if current.type in _DEFINITION_TYPES:
@@ -84,6 +90,43 @@ class PythonMapper:
 
     def _text(self, node) -> str:
         return self.source[node.start_byte : node.end_byte].decode("utf-8", "replace")
+
+    def _is_overload_stub(self, decorated) -> bool:
+        """True when a decorated definition carries @overload / @typing.overload."""
+        for child in decorated.children:
+            if child.type != "decorator":
+                continue
+            name = self._text(child).lstrip("@").split("(")[0].strip()
+            if name.rsplit(".", 1)[-1] == "overload":
+                return True
+        return False
+
+    def _definitions_in(self, node) -> list:
+        return _child_definitions(node, self._is_overload_stub)
+
+    def _docstring(self, body) -> str | None:
+        """The leading string literal of a class or function body, if present.
+
+        This is the only natural-language description of intent the source
+        carries, so it is what semantic search embeds.
+        """
+        if body is None:
+            return None
+        first = next((child for child in body.named_children), None)
+        if first is None or first.type != "expression_statement":
+            return None
+        literal = next((child for child in first.named_children), None)
+        if literal is None or literal.type != "string":
+            return None
+
+        # The grammar separates string_start/content/end, so prefixes like r"""
+        # and the quotes themselves never reach the text.
+        content = next(
+            (child for child in literal.children if child.type == "string_content"), None
+        )
+        if content is None:
+            return None
+        return " ".join(self._text(content).split()) or None
 
     @staticmethod
     def _collapse(text: str) -> str:
@@ -129,7 +172,7 @@ class PythonMapper:
         for statement in self._module_level_imports(root):
             self._handle_import(statement, module_id)
 
-        for definition in _child_definitions(root):
+        for definition in self._definitions_in(root):
             if definition.type == "class_definition":
                 self._handle_class(definition, self.module_qname, module_id, EdgeType.CONTAINS)
             elif definition.type == "function_definition":
@@ -239,6 +282,7 @@ class PythonMapper:
             NodeType.CLASS,
             qname,
             name=name,
+            docstring=self._docstring(node.child_by_field_name("body")),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
         )
@@ -269,7 +313,7 @@ class PythonMapper:
         body = node.child_by_field_name("body")
         if body is None:
             return
-        for definition in _child_definitions(body):
+        for definition in self._definitions_in(body):
             if definition.type == "function_definition":
                 method_id = self._handle_function(
                     definition,
@@ -316,6 +360,7 @@ class PythonMapper:
             qname,
             name=name,
             signature=signature,
+            docstring=self._docstring(node.child_by_field_name("body")),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
         )
@@ -338,7 +383,7 @@ class PythonMapper:
         body = node.child_by_field_name("body")
         if body is not None:
             self._walk_body(body, func_id, qname, enclosing_class)
-            for definition in _child_definitions(body):
+            for definition in self._definitions_in(body):
                 if definition.type == "function_definition":
                     self._handle_function(
                         definition,

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from conftest import FakeNeo4j, FakeProvider
 
 from agent.few_shot import EXAMPLES, render_examples
-from agent.provider import LLMProvider, LLMResponse
 from agent.query_agent import (
     MAX_CYPHER_ATTEMPTS,
     QueryAgent,
@@ -15,39 +15,6 @@ from graph.schema import SHARED_LABEL, EdgeType, NodeType
 from retrieval.cypher_guard import validate_cypher
 
 VALID_CYPHER = "MATCH (f:Function {repo_id: $repo_id}) RETURN f.name AS name LIMIT 25"
-
-
-class FakeProvider(LLMProvider):
-    """Returns scripted responses so agent logic is testable without an API."""
-
-    def __init__(self, cypher_payloads: list[dict], answer: str = "The answer.") -> None:
-        self.cypher_payloads = list(cypher_payloads)
-        self.answer = answer
-        self.prompts: list[str] = []
-
-    def generate(self, prompt, *, system=None, max_tokens=1024, effort="medium"):
-        self.prompts.append(prompt)
-        return LLMResponse(text=self.answer, model="fake", input_tokens=10, output_tokens=5)
-
-    def generate_json(self, prompt, json_schema, *, system=None, max_tokens=1024, effort="medium"):
-        self.prompts.append(prompt)
-        payload = self.cypher_payloads.pop(0)
-        return payload, LLMResponse(text="{}", model="fake", input_tokens=20, output_tokens=8)
-
-
-class FakeNeo4j:
-    """Accepts EXPLAIN, returns fixed rows for the real query."""
-
-    def __init__(self, rows=None, fail_on: str | None = None):
-        self.rows = rows if rows is not None else [{"name": "helper"}]
-        self.fail_on = fail_on
-        self.executed: list[str] = []
-
-    def run(self, query, **params):
-        if self.fail_on and self.fail_on in query:
-            raise RuntimeError("SyntaxError: bad query")
-        self.executed.append(query)
-        return [] if query.startswith("EXPLAIN") else self.rows
 
 
 # ------------------------------------------------------------------ prompts
@@ -211,6 +178,13 @@ def test_tidy_answer_keeps_a_lines_only_citation():
     # Nothing earlier in the line names the file, so the citation must survive.
     answer = "- `is_prepared` has 9 callers src/_types.py:47"
     assert _tidy_answer(answer) == answer
+
+
+def test_tidy_answer_normalises_lenticular_citation_brackets():
+    answer = "The adapter passes retries【src/requests/adapters.py:695】to urllib3."
+    assert _tidy_answer(answer) == (
+        "The adapter passes retries(src/requests/adapters.py:695)to urllib3."
+    )
 
 
 def test_tidy_answer_keeps_inline_citations():

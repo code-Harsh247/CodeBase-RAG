@@ -4,10 +4,62 @@ from pathlib import Path
 
 import pytest
 
+from agent.provider import LLMProvider, LLMResponse
 from graph.schema import EdgeType, NodeType
 from ingestion.pipeline import parse_repository
 from ingestion.repo import local_repo
 from ingestion.resolver import Resolver
+
+
+class FakeProvider(LLMProvider):
+    """Scripted provider so agent logic is testable without an API.
+
+    ``cypher_payloads`` feeds ``generate_json`` (the single-shot path) and
+    ``turns`` feeds ``converse`` (the multi-hop path); a test supplies whichever
+    it exercises.
+    """
+
+    def __init__(
+        self,
+        cypher_payloads: list[dict] | None = None,
+        answer: str = "The answer.",
+        turns: list[LLMResponse] | None = None,
+    ) -> None:
+        self.cypher_payloads = list(cypher_payloads or [])
+        self.answer = answer
+        self.turns = list(turns or [])
+        self.prompts: list[str] = []
+        self.conversations: list[list] = []
+
+    def generate(self, prompt, *, system=None, max_tokens=1024, effort="medium"):
+        self.prompts.append(prompt)
+        return LLMResponse(text=self.answer, model="fake", input_tokens=10, output_tokens=5)
+
+    def generate_json(self, prompt, json_schema, *, system=None, max_tokens=1024, effort="medium"):
+        self.prompts.append(prompt)
+        payload = self.cypher_payloads.pop(0)
+        return payload, LLMResponse(text="{}", model="fake", input_tokens=20, output_tokens=8)
+
+    def converse(self, messages, tools, *, max_tokens=2048, effort="medium"):
+        self.conversations.append(list(messages))
+        if self.turns:
+            return self.turns.pop(0)
+        return LLMResponse(text=self.answer, model="fake", input_tokens=30, output_tokens=10)
+
+
+class FakeNeo4j:
+    """Accepts EXPLAIN, returns fixed rows for the real query."""
+
+    def __init__(self, rows=None, fail_on: str | None = None):
+        self.rows = rows if rows is not None else [{"name": "helper"}]
+        self.fail_on = fail_on
+        self.executed: list[str] = []
+
+    def run(self, query, **params):
+        if self.fail_on and self.fail_on in query:
+            raise RuntimeError("SyntaxError: bad query")
+        self.executed.append(query)
+        return [] if query.startswith("EXPLAIN") else self.rows
 
 FIXTURE_REPO = Path(__file__).parent / "fixtures" / "sample_repo"
 

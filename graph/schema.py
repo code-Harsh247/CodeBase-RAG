@@ -44,9 +44,9 @@ COMMON_PROPERTIES: tuple[str, ...] = ("id", "repo_id", "qualified_name", "file_p
 NODE_PROPERTIES: dict[NodeType, tuple[str, ...]] = {
     NodeType.FILE: ("language",),
     NodeType.MODULE: (),
-    NodeType.CLASS: ("start_line", "end_line"),
-    NodeType.FUNCTION: ("signature", "start_line", "end_line"),
-    NodeType.METHOD: ("signature", "start_line", "end_line"),
+    NodeType.CLASS: ("docstring", "start_line", "end_line"),
+    NodeType.FUNCTION: ("signature", "docstring", "start_line", "end_line"),
+    NodeType.METHOD: ("signature", "docstring", "start_line", "end_line"),
     NodeType.IMPORT: ("source_module", "imported_name", "alias", "start_line", "is_internal"),
 }
 

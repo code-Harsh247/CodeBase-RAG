@@ -19,12 +19,31 @@ Effort = Literal["low", "medium", "high"]
 
 
 @dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict
+
+
+@dataclass
+class Message:
+    """One turn of a tool-using conversation, in vendor-neutral form."""
+
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str | None = None
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    #: Set on a `tool` message to say which call it answers.
+    tool_call_id: str | None = None
+
+
+@dataclass
 class LLMResponse:
     text: str
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
     reasoning_tokens: int = 0
+    tool_calls: list[ToolCall] = field(default_factory=list)
 
     def __add__(self, other: LLMResponse) -> LLMResponse:
         """Accumulate token usage across the calls that answer one question."""
@@ -84,6 +103,21 @@ class LLMProvider(ABC):
         effort: Effort = "medium",
     ) -> tuple[dict, LLMResponse]:
         """Generation constrained to ``json_schema``. Returns the parsed object."""
+
+    @abstractmethod
+    def converse(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        *,
+        max_tokens: int = 2048,
+        effort: Effort = "medium",
+    ) -> LLMResponse:
+        """One turn of a tool-using conversation.
+
+        Returns either text (the agent is done) or tool calls to execute and
+        feed back as ``tool`` messages.
+        """
 
 
 def get_provider(name: str | None = None, model: str | None = None) -> LLMProvider:

@@ -16,6 +16,7 @@ from ingestion.repo import ClonedRepo, clone_repo, local_repo
 from ingestion.resolver import Resolver
 from ingestion.symbols import ParsedModule
 from ingestion.walker import walk_files
+from retrieval.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class IngestionSummary:
     files_failed: int = 0
     node_counts: dict[str, int] = field(default_factory=dict)
     edge_counts: dict[str, int] = field(default_factory=dict)
+    embedded: int = 0
     resolution: dict[str, int] = field(default_factory=dict)
     duration_seconds: float = 0.0
 
@@ -59,6 +61,7 @@ class IngestionSummary:
                 )
             internal, total = stats.get("imports_internal", 0), stats.get("imports_total", 0)
             lines.append(f"  {'imports':<10} {internal}/{total} internal")
+        lines.append(f"embedded: {self.embedded} definitions for semantic search")
         return "\n".join(lines)
 
 
@@ -82,6 +85,24 @@ def parse_repository(repo: ClonedRepo, include_tests: bool = False) -> tuple[lis
     return modules, failures
 
 
+def _dedupe_nodes(nodes: list[Node]) -> list[Node]:
+    """Collapse nodes sharing an id, keeping the last.
+
+    Neo4j MERGEs duplicates silently, so this mattered only once the vector
+    store rejected them. Overload stubs are filtered earlier; this stays as a
+    guard so an unforeseen duplicate degrades the graph slightly instead of
+    aborting ingestion. The last definition wins because, for same-named
+    definitions in a file, it is the one that is live at import time.
+    """
+    unique: dict[str, Node] = {}
+    for node in nodes:
+        unique[node.id] = node
+    dropped = len(nodes) - len(unique)
+    if dropped:
+        logger.warning("collapsed %d duplicate node id(s)", dropped)
+    return list(unique.values())
+
+
 def _dedupe_edges(edges: list[Edge]) -> list[Edge]:
     """Collapse repeated (source, target, type) edges, keeping a count."""
     merged: dict[tuple[str, str, str], Edge] = {}
@@ -102,6 +123,7 @@ def ingest(
     client: Neo4jClient,
     include_tests: bool = False,
     refresh: bool = False,
+    vector_store: VectorStore | None = None,
 ) -> IngestionSummary:
     """Ingest a GitHub URL or a local directory path into the graph."""
     started = time.perf_counter()
@@ -124,11 +146,15 @@ def ingest(
         updates = resolution.node_updates.get(node.id)
         if updates:
             node.properties.update(updates)
+    nodes = _dedupe_nodes(nodes)
 
     client.ensure_schema()
     client.delete_repo(repo.repo_id)
     node_counts = client.load_nodes(nodes)
     edge_counts = client.load_edges(_dedupe_edges(edges))
+
+    store = vector_store if vector_store is not None else VectorStore()
+    embedded = store.index(repo.repo_id, nodes)
 
     return IngestionSummary(
         repo_id=repo.repo_id,
@@ -138,5 +164,6 @@ def ingest(
         node_counts=node_counts,
         edge_counts=edge_counts,
         resolution=resolution.stats.as_dict(),
+        embedded=embedded,
         duration_seconds=time.perf_counter() - started,
     )

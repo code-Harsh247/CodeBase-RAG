@@ -79,16 +79,42 @@ than answered.
 
 Goal: the agent chooses tools and iterates, matching the "not just RAG" thesis.
 
-- [ ] Function/class summary extraction (signature + docstring, optionally LLM-generated one-liner where docstring is missing)
-- [ ] Vector store setup (Chroma), embed summaries keyed by graph node ID
-- [ ] `semantic_search(query)` tool: embed query, top-k retrieval, auto-expand each hit into graph neighborhood
-- [ ] `grep_and_read(pattern|path)` tool: raw fallback over the local clone
-- [ ] Agent loop: tool selection, iteration, stopping condition, max-hop safety limit
-- [ ] Tool-call trace logging (surfaced later in UI per transparency NFR)
-- [ ] Multi-hop test questions (e.g., "what calls X, and what does that caller do") to validate iteration actually happens
-- [ ] Compare single-shot (Phase 2) vs. multi-hop (Phase 3) answers on the same question set — confirm multi-hop wins where expected
+- [x] Docstring extraction added to the mapper (it captured none before Phase 3)
+- [x] Function/class summary extraction (qualified name + signature + docstring)
+- [x] Vector store setup (Chroma, ONNX MiniLM embeddings — no torch), keyed by graph node ID
+- [x] `semantic_search(query)` tool: embed query, top-k retrieval, auto-expand each hit into graph neighborhood
+- [x] `read_code(name|path)` and `grep(pattern)` tools over the local clone
+- [x] Agent loop: native tool calling, iteration, stopping condition, max-hop safety limit
+- [x] Tool-call trace logging (printed to stderr per transparency NFR)
+- [x] Multi-hop test questions to validate iteration actually happens
+- [~] Compare single-shot (Phase 2) vs. multi-hop (Phase 3) — **partial, see below**
 
-**Exit criteria:** agent correctly answers multi-hop and fuzzy/conceptual questions it could not answer in Phase 2, using more than one tool call where needed.
+**Exit criteria:** agent correctly answers multi-hop and fuzzy/conceptual questions it could not answer in Phase 2, using more than one tool call where needed. ✅ (demonstrated; comparison incomplete)
+
+Multi-hop retrieval works and chains tools as designed — e.g. "how does requests
+handle retries" runs `semantic_search -> grep -> read_code -> read_code` and
+produces a correctly cited answer that no single Cypher query could reach.
+
+The clearest win so far is "Where is SSL certificate verification handled?":
+single-shot answered `HTTPAdapter.send` (the caller), multi-hop found
+`HTTPAdapter.cert_verify` at src/requests/adapters.py:307 — the method that
+actually does it.
+
+**The comparison is unfinished.** Groq enforces an undocumented 200,000
+tokens/day cap that we hit partway through; two behavioural questions have no
+multi-hop result. What the partial run showed:
+
+| kind | single-shot | multi-hop | tokens (single vs multi) |
+|------|-------------|-----------|--------------------------|
+| structural (2) | 2/2 | 2/2 | 5,481 vs 11,129 |
+| behavioural (3) | 3/3 by row count | 1/3 completed | 8,573 vs 10,763 |
+
+Two caveats worth carrying into Phase 4, both about measurement rather than the
+system: the "single-shot 3/3" is scored on *returning rows*, which is not the
+same as answering well — one of those answers was the hedge "it calls another
+function whose name contains 'cookie'". And multi-hop costs 2-4x the tokens for
+structural questions it has no advantage on. Deciding when the extra cost is
+warranted needs the graded eval, not row counts.
 
 ---
 
@@ -101,7 +127,8 @@ Goal: quantified proof the graph-hybrid approach beats naive RAG.
 - [ ] Build minimal naive-RAG baseline (fixed-size chunk + embed + top-k + LLM answer) — separate, throwaway implementation
 - [ ] Retrieval scoring: precision/recall against ground-truth source locations, for both systems
 - [ ] Answer correctness scoring (LLM-graded or manual, given small set size)
-- [ ] Pace eval calls to stay under Groq's 8,000 TPM free-tier cap; if that makes the run impractically slow, switch the run to the reserved paid budget instead (see ARCHITECTURE.md §2.4a)
+- [ ] Budget the run against Groq's **200,000 tokens/day** cap (discovered in Phase 3, undocumented by Groq), not just the 8,000 TPM cap. A full sweep over both systems will not fit in one day's free quota — plan to use the reserved paid budget for the scored run, and keep Groq for developing the harness (see ARCHITECTURE.md §2.4a)
+- [ ] Record per-question token cost alongside accuracy: multi-hop costs 2-4x single-shot, so "is the extra retrieval worth it" is part of the result, not a footnote
 - [ ] Run both systems across the full question set, capture results
 - [ ] Results table + analysis (where graph wins, where it doesn't, why)
 - [ ] Wire eval run into GitHub Actions as a regression check

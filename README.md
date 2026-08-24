@@ -2,7 +2,7 @@
 
 Graph-augmented codebase Q&A for **Python** repositories. Give it a public GitHub repo URL; it parses the code with tree-sitter into a Neo4j knowledge graph (functions, classes, calls, imports, inheritance) and answers natural-language questions using an agent that combines graph queries, semantic search, and grep — instead of naive chunk-and-embed RAG.
 
-**Status:** Phase 2 complete — ingests Python repositories and answers natural-language questions with cited, graph-grounded answers. Multi-hop agentic retrieval lands in Phase 3. See [docs/TASKS.md](docs/TASKS.md).
+**Status:** Phase 3 complete — ingests Python repositories and answers questions by iteratively querying the graph, searching semantically, and reading source, with cited answers. Evaluation against a naive-RAG baseline is Phase 4. See [docs/TASKS.md](docs/TASKS.md).
 
 **Scope:** Python only, deliberately. The graph schema carries nothing Python-specific and a second language would mean writing one new visitor — but that is a post-MVP extension, not a v1 claim. Depth on one language with measured resolution quality beats a longer language list that is only partly true.
 
@@ -38,15 +38,16 @@ python cli.py ingest https://github.com/psf/requests
 ```
 repo:    psf/requests @ 8f8b212de8c2
 files:   22 parsed, 0 failed
-elapsed: 1.9s
+elapsed: 14.8s
 nodes:
-  Class      53    Function   91    Method   177
-  File       22    Import    423    Module    22
+  Class      53    Function   85    Method   163
+  File       22    Import    427    Module    22
 edges:
   CALLS      211   CONTAINS  160    DEFINES  163
   IMPORTS    632   INHERITS   37    REFERENCES 131
 resolution (rate = resolved / internal references):
-  calls      290 resolved, 127 unresolved, 525 out-of-scope  (70%)
+  calls      290 resolved, 126 unresolved, 526 out-of-scope  (70%)
+embedded: 301 definitions for semantic search
 ```
 
 Ask a question in English:
@@ -71,9 +72,25 @@ The following classes inherit from `RequestException`:
 … 12 more
 ```
 
-The generated query and its row count print to stderr by default — that is the
-evidence the answer came from the graph rather than from the model's
-imagination. Pass `--quiet` for just the answer, or pipe stderr away.
+By default the agent investigates over several hops, choosing between graph
+queries, semantic search over docstrings, reading source, and grep:
+
+```bash
+python cli.py query psf/requests "How does requests handle retries when a request fails?"
+```
+
+```
+--- hop 1: semantic_search(retry) ---
+--- hop 2: grep(Retry) ---
+--- hop 3: read_code(requests.adapters.HTTPAdapter.send) ---
+--- hop 4: read_code(requests.adapters.HTTPAdapter) ---
+--- 5 LLM calls, 15591 tokens (406 reasoning) ---
+```
+
+The trace prints to stderr — it is the evidence the answer came from the
+codebase rather than the model's imagination. Pass `--quiet` for just the
+answer, or `--single-hop` to use the one-query path instead (cheaper, and
+enough for purely structural questions).
 
 Query the graph directly with raw Cypher:
 

@@ -14,7 +14,7 @@ import os
 
 from groq import Groq
 
-from agent.provider import Effort, LLMProvider, LLMResponse
+from agent.provider import Effort, LLMProvider, LLMResponse, Message, ToolCall
 
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 
@@ -102,3 +102,60 @@ class GroqProvider(LLMProvider):
                 f"or lower effort."
             )
         return json.loads(response.text), response
+
+    def converse(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        *,
+        max_tokens: int = 2048,
+        effort: Effort = "medium",
+    ) -> LLMResponse:
+        completion = self._client.chat.completions.create(
+            model=self.model,
+            messages=[_to_wire(message) for message in messages],
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=max_tokens,
+            reasoning_effort=effort,
+        )
+        choice = completion.choices[0]
+        usage = completion.usage
+        details = getattr(usage, "completion_tokens_details", None)
+
+        calls = [
+            ToolCall(id=call.id, name=call.function.name, arguments=_parse_args(call))
+            for call in (choice.message.tool_calls or [])
+        ]
+        return LLMResponse(
+            text=choice.message.content or "",
+            model=completion.model,
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
+            reasoning_tokens=getattr(details, "reasoning_tokens", 0) or 0,
+            tool_calls=calls,
+        )
+
+
+def _parse_args(call) -> dict:
+    """Tool arguments arrive as a JSON string and may be malformed."""
+    try:
+        return json.loads(call.function.arguments or "{}")
+    except json.JSONDecodeError:
+        return {"__malformed__": call.function.arguments}
+
+
+def _to_wire(message: Message) -> dict:
+    payload: dict = {"role": message.role, "content": message.content or ""}
+    if message.tool_calls:
+        payload["tool_calls"] = [
+            {
+                "id": call.id,
+                "type": "function",
+                "function": {"name": call.name, "arguments": json.dumps(call.arguments)},
+            }
+            for call in message.tool_calls
+        ]
+    if message.tool_call_id:
+        payload["tool_call_id"] = message.tool_call_id
+    return payload

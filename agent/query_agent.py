@@ -202,8 +202,14 @@ def _drop_duplicate_citation(line: str) -> str:
     return head if match.group(1) in head else line
 
 
+#: GPT-OSS wraps citations in CJK lenticular brackets no matter what the prompt
+#: says. Normalised to parentheses rather than fought over in the prompt.
+_LENTICULAR = re.compile(r"【\s*([^】]*?)\s*】")
+
+
 def _tidy_answer(answer: str) -> str:
-    cleaned = _TRAILING_CITATIONS.sub("", answer)
+    cleaned = _LENTICULAR.sub(r"(\1)", answer)
+    cleaned = _TRAILING_CITATIONS.sub("", cleaned)
     cleaned = _ZERO_LINE_CITATION.sub(r"\1", cleaned)
     cleaned = "\n".join(_drop_duplicate_citation(line) for line in cleaned.splitlines())
     return cleaned.strip()

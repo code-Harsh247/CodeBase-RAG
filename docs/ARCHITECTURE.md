@@ -70,17 +70,20 @@ plus a structured-output variant for schema-constrained generation), not a
 direct SDK call. This is a deliberate boundary, not speculative abstraction —
 the provider actually changes across phases of this project:
 
-- **Default: Groq (`GPT-OSS 120B`)**, free tier. Confirmed limits: 1,000
-  requests/day, 30 requests/minute, **8,000 tokens/minute** — the TPM cap is
-  the binding constraint, not RPD. A single interactive question (a 2-4 hop
-  agentic loop) fits comfortably; a full eval sweep (Phase 4, ~200-250 calls)
-  needs small pacing delays between calls to stay under TPM, not a different
-  provider.
+- **Default: Groq (`GPT-OSS 120B`)**, free tier. Limits: 1,000 requests/day,
+  30 requests/minute, 8,000 tokens/minute, and — **not listed in Groq's
+  published rate-limit table, discovered by hitting it in Phase 3** — a hard
+  **200,000 tokens/day**. That daily cap, not TPM, is the real constraint.
+  A multi-hop question costs 5,000-11,000 tokens, so the free tier affords
+  roughly **20-35 multi-hop questions per day**, which is not enough to run
+  the Phase 4 eval sweep (~30 questions x 2 systems) even once without
+  planning around it.
 - **Reserved fallback: a paid Anthropic budget (~$5-10), for the Phase 4 eval
-  run only**, if Groq's TPM pacing makes that run impractically slow or if
-  eval results need a stronger-model reference point to sanity-check whether a
-  weak score reflects the retrieval design or the generation model. Not used
-  for day-to-day development.
+  run only.** Originally held in case TPM pacing made that run slow; the 200k
+  daily cap makes it close to necessary rather than optional, since a single
+  full eval sweep over both systems would consume most or all of a day's free
+  quota, leaving no room to iterate on a bad result. Still unused for
+  day-to-day development.
 - **Rejected: Gemini free tier.** Confirmed at 20 requests/day for Flash
   models — unusable for iteration, let alone a 200+ call eval run.
 

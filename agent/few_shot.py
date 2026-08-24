@@ -119,9 +119,17 @@ ORDER BY caller LIMIT 25
 ]
 
 
-def render_examples() -> str:
+def render_examples(limit: int | None = None) -> str:
+    """Render examples for a prompt.
+
+    ``limit`` matters for the multi-hop agent: its system prompt is re-sent on
+    every hop, so each example is paid for repeatedly. The first few cover the
+    patterns that generalise (callers, callees, inheritance, methods); the rest
+    earn their place only in the single-shot path, which pays for them once.
+    """
+    chosen = EXAMPLES[:limit] if limit else EXAMPLES
     blocks = ["EXAMPLES", ""]
-    for question, cypher in EXAMPLES:
+    for question, cypher in chosen:
         blocks.append(f"Q: {question}")
         blocks.append(f"Cypher:\n{cypher}")
         blocks.append("")
