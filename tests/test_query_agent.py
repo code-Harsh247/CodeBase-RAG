@@ -11,7 +11,7 @@ from agent.query_agent import (
     _tidy_answer,
 )
 from agent.schema_prompt import schema_description
-from graph.schema import EdgeType, NodeType
+from graph.schema import SHARED_LABEL, EdgeType, NodeType
 from retrieval.cypher_guard import validate_cypher
 
 VALID_CYPHER = "MATCH (f:Function {repo_id: $repo_id}) RETURN f.name AS name LIMIT 25"
@@ -70,6 +70,25 @@ def test_every_few_shot_example_passes_the_guard():
     for question, cypher in EXAMPLES:
         result = validate_cypher(cypher)
         assert result.ok, f"example {question!r} produces invalid Cypher: {result.error}"
+
+
+def test_no_example_uses_the_broken_labels_index_pattern():
+    # Every node also carries the CodeNode label, which sorts first, so
+    # `labels(n)[0]` returns "CodeNode" for everything. An example using it
+    # would teach the model a pattern that silently returns useless values.
+    for question, cypher in EXAMPLES:
+        assert "labels(" not in cypher or "WHERE l <>" in cypher, (
+            f"example {question!r} uses labels(...)[0] without excluding the shared label"
+        )
+
+
+def test_schema_rules_warn_about_both_silent_wrong_answer_traps():
+    description = schema_description()
+    # Filtering to :Function alone drops methods and looks correct.
+    assert ":Function|Method" in description
+    # labels(n)[0] returns the shared label rather than the node's real type.
+    assert "labels(n)[0]" in description
+    assert SHARED_LABEL in description
 
 
 def test_render_examples_includes_all_examples():
@@ -170,6 +189,28 @@ def test_tidy_answer_trims_a_trailing_citation_dump():
         "src/requests/api.py:171"
     )
     assert _tidy_answer(answer).endswith("- delete at line 171")
+
+
+def test_tidy_answer_strips_fabricated_zero_line_numbers():
+    # The model writes `:0` when the query returned no line number.
+    answer = "`is_prepared` has 9 callers (src/requests/_types.py:0)."
+    assert _tidy_answer(answer) == "`is_prepared` has 9 callers (src/requests/_types.py)."
+
+
+def test_tidy_answer_keeps_real_line_numbers():
+    answer = "Defined at src/requests/api.py:24 and src/requests/api.py:102."
+    assert _tidy_answer(answer) == answer
+
+
+def test_tidy_answer_drops_a_citation_duplicated_on_the_same_line():
+    answer = "- `is_prepared` – 9 callers (src/_types.py line 47) src/_types.py:47"
+    assert _tidy_answer(answer) == "- `is_prepared` – 9 callers (src/_types.py line 47)"
+
+
+def test_tidy_answer_keeps_a_lines_only_citation():
+    # Nothing earlier in the line names the file, so the citation must survive.
+    answer = "- `is_prepared` has 9 callers src/_types.py:47"
+    assert _tidy_answer(answer) == answer
 
 
 def test_tidy_answer_keeps_inline_citations():

@@ -45,11 +45,19 @@ def schema_description() -> str:
     return "\n".join(lines)
 
 
-_RULES = """\
+_RULES = f"""\
   - Read-only queries only: MATCH, WHERE, RETURN, ORDER BY, LIMIT, WITH,
     DISTINCT, count().
-  - Always scope to the repository with {repo_id: $repo_id} on at least one
+  - Always scope to the repository with {{repo_id: $repo_id}} on at least one
     matched node.
+  - "Function" in a question almost always means "any callable". Match
+    `(:Function|Method)` — or omit the label entirely — unless the user
+    explicitly asks for standalone functions or for methods specifically.
+    Filtering to `:Function` alone silently drops every method and produces a
+    confidently wrong answer.
+  - Never use `labels(n)[0]`: every node also carries the `{SHARED_LABEL}`
+    label, which sorts first, so that expression returns `{SHARED_LABEL}` for
+    everything. Use `[l IN labels(n) WHERE l <> '{SHARED_LABEL}'][0]`.
   - `qualified_name` is the dotted import path for Modules, Classes, Functions
     and Methods (e.g. `requests.sessions.Session.get`). Match on `name` instead
     when the user gives a bare identifier.

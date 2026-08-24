@@ -101,8 +101,19 @@ ORDER BY referenced LIMIT 25
         """
 MATCH (f:File {repo_id: $repo_id})-[:CONTAINS]->(:Module)-[:CONTAINS]->(d)
 WHERE f.qualified_name = 'src/requests/api.py'
-RETURN labels(d)[0] AS kind, d.name AS name, d.start_line AS line
+RETURN [l IN labels(d) WHERE l <> 'CodeNode'][0] AS kind, d.name AS name,
+       d.start_line AS line
 ORDER BY d.start_line LIMIT 25
+""".strip(),
+    ),
+    (
+        "Which functions call json.dumps?",
+        """
+MATCH (caller:Function|Method {repo_id: $repo_id})-[:CALLS]->(target)
+WHERE target.name = 'dumps'
+RETURN caller.qualified_name AS caller, caller.file_path AS file,
+       caller.start_line AS line
+ORDER BY caller LIMIT 25
 """.strip(),
     ),
 ]

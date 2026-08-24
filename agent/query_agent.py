@@ -56,6 +56,9 @@ _ANSWER_SYSTEM = (
     "- Cite sources as plain `path/to/file.py:42`, inline beside the claim and "
     "once each. No brackets, footnotes, or reference markers, and never append "
     "a trailing list of citations.\n"
+    "- Only cite a line number that appears verbatim in the rows. If a row has "
+    "no line number, cite the file path alone. Never write `:0` and never "
+    "guess a line — a fabricated location is worse than no location.\n"
     "- If the rows are empty, say the graph contains no match and suggest what "
     "the user might ask instead. Do not guess an answer.\n"
     "- This tool answers read-only questions about code structure. If the "
@@ -177,8 +180,33 @@ class QueryAgent:
 _TRAILING_CITATIONS = re.compile(r"(?:[ \t]+[\w./\\-]+:\d+){3,}[ \t]*$", re.MULTILINE)
 
 
+#: `file.py:0` is never a real location — it appears when the query returned no
+#: line number and the model invented one rather than omitting the citation.
+#: Prompting alone does not reliably stop this, and a fabricated source location
+#: undermines the one guarantee this tool makes, so it is also stripped here.
+_ZERO_LINE_CITATION = re.compile(r"([\w./\\-]+\.\w+):0\b")
+
+
+#: A single bare citation tacked onto the end of a line, e.g.
+#: "... (src/x.py line 47) src/x.py:47". Only removed when that same path
+#: already appears earlier in the line, so a line whose only citation is at the
+#: end keeps it.
+_TRAILING_ONE_CITATION = re.compile(r"[ \t]+([\w./\\-]+\.\w+):\d+[ \t]*$")
+
+
+def _drop_duplicate_citation(line: str) -> str:
+    match = _TRAILING_ONE_CITATION.search(line)
+    if match is None:
+        return line
+    head = line[: match.start()]
+    return head if match.group(1) in head else line
+
+
 def _tidy_answer(answer: str) -> str:
-    return _TRAILING_CITATIONS.sub("", answer).strip()
+    cleaned = _TRAILING_CITATIONS.sub("", answer)
+    cleaned = _ZERO_LINE_CITATION.sub(r"\1", cleaned)
+    cleaned = "\n".join(_drop_duplicate_citation(line) for line in cleaned.splitlines())
+    return cleaned.strip()
 
 
 def _strip_fences(cypher: str) -> str:
