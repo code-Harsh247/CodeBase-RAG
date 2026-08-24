@@ -1,190 +1,193 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  fetchRepos,
-  streamQuery,
-  type AnswerEvent,
-  type HopEvent,
-  type Mode,
-  type Repo,
-} from "./api";
-import { AddRepo } from "./components/AddRepo";
-import { Answer } from "./components/Answer";
-import { HopTrace } from "./components/HopTrace";
-import { examplesFor } from "./examples";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchRepos, type Repo } from "./api";
+import { Composer } from "./components/Composer";
+import { Sidebar, type SidebarRow } from "./components/Sidebar";
+import { Thread } from "./components/Thread";
+import { TracePanel } from "./components/TracePanel";
+import { loadSidebarOpen, saveSidebarOpen } from "./state/storage";
+import { newId } from "./state/types";
+import { useThreadStore } from "./state/useThreadStore";
 
 export default function App() {
+  const { store, dispatch, startIngest, ask } = useThreadStore();
   const [repos, setRepos] = useState<Repo[]>([]);
-  const [repoId, setRepoId] = useState("");
-  const [question, setQuestion] = useState("");
-  const [mode, setMode] = useState<Mode>("multi_hop");
-  const [adding, setAdding] = useState(false);
+  const [reposError, setReposError] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
+  const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
 
-  const [hops, setHops] = useState<HopEvent[]>([]);
-  const [answer, setAnswer] = useState<AnswerEvent | null>(null);
-  const [error, setError] = useState("");
-  const [running, setRunning] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const loadRepos = useCallback(async (select?: string) => {
-    const found = await fetchRepos();
-    setRepos(found);
-    setRepoId((current) => select ?? current ?? "");
-    return found;
+  const refreshRepos = useCallback(async () => {
+    try {
+      setRepos(await fetchRepos());
+      setReposError("");
+    } catch (exc) {
+      // A failed fetch must never be read as "everything is stale" — keep the
+      // local threads and say the server is unreachable.
+      setReposError(String(exc));
+    }
   }, []);
 
   useEffect(() => {
-    loadRepos()
-      .then((found) => {
-        if (found.length) setRepoId((current) => current || found[0].repo_id);
-        // Nothing indexed yet: the URL box is the only sensible starting point.
-        else setAdding(true);
-      })
-      .catch((exc) => setError(String(exc)));
-  }, [loadRepos]);
+    void refreshRepos();
+  }, [refreshRepos]);
 
-  // A run can take half a minute; leaving it going after the component
-  // unmounts would leak the connection.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => saveSidebarOpen(sidebarOpen), [sidebarOpen]);
 
-  async function ask(text: string) {
-    const trimmed = text.trim();
-    if (!trimmed || !repoId || running) return;
+  const activeThread = store.activeThreadId
+    ? (store.threads[store.activeThreadId] ?? null)
+    : null;
 
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  const running = activeThread
+    ? activeThread.messages.some(
+        (message) => message.kind !== "user" && message.status === "running",
+      )
+    : false;
 
-    setRunning(true);
-    setHops([]);
-    setAnswer(null);
-    setError("");
+  // One row per project: local threads first, then server repos never opened
+  // here. A thread whose repo has vanished from the graph is kept and marked,
+  // never dropped — the transcript is still worth reading.
+  const rows: SidebarRow[] = useMemo(() => {
+    const indexed = new Map(repos.map((repo) => [repo.repo_id, repo]));
+    const threads = Object.values(store.threads).sort((a, b) => b.updatedAt - a.updatedAt);
+    const claimed = new Set<string>();
 
-    try {
-      await streamQuery(
-        { repo_id: repoId, question: trimmed, mode },
-        (event) => {
-          if (event.type === "hop") setHops((current) => [...current, event]);
-          else if (event.type === "answer") setAnswer(event);
-          else setError(event.message);
-        },
-        controller.signal,
-      );
-    } catch (exc) {
-      if (!controller.signal.aborted) setError(String(exc));
-    } finally {
-      setRunning(false);
+    // A thread that never produced anything — a failed ingest — should not
+    // leave a permanent row behind. `start` assigns a repoId before the clone
+    // is attempted, so a nonexistent repo does get an id; what distinguishes a
+    // real project is a completed ingest or a repo the server actually has.
+    const survives = (thread: (typeof threads)[number]) =>
+      thread.id === store.activeThreadId ||
+      thread.messages.some(
+        (message) => message.kind === "ingest" && message.status === "done",
+      ) ||
+      (!!thread.repoId && indexed.has(thread.repoId));
+
+    const fromThreads = threads.filter(survives).map((thread) => {
+      if (thread.repoId) claimed.add(thread.repoId);
+      const repo = thread.repoId ? indexed.get(thread.repoId) : undefined;
+      return {
+        thread,
+        repoId: thread.repoId,
+        label: thread.repoId ?? thread.url ?? "New project",
+        nodes: repo?.nodes ?? null,
+        // With no server list we cannot know; assume available rather than
+        // marking every thread stale because Neo4j is down.
+        available: reposError ? true : !thread.repoId || indexed.has(thread.repoId),
+        running: thread.messages.some(
+          (message) => message.kind !== "user" && message.status === "running",
+        ),
+      };
+    });
+
+    const fromServer = repos
+      .filter((repo) => !claimed.has(repo.repo_id))
+      .map((repo) => ({
+        thread: null,
+        repoId: repo.repo_id,
+        label: repo.repo_id,
+        nodes: repo.nodes,
+        available: true,
+        running: false,
+      }));
+
+    return [...fromThreads, ...fromServer];
+  }, [repos, store.threads, store.activeThreadId, reposError]);
+
+  function selectRow(row: SidebarRow) {
+    setTraceMessageId(null);
+    if (row.thread) {
+      dispatch({ type: "activeThreadSet", threadId: row.thread.id });
+      return;
+    }
+    // A repo indexed on the server that this browser has never opened: adopt
+    // it into an empty thread so it can be asked about.
+    if (row.repoId) {
+      dispatch({ type: "threadAdopted", threadId: newId(), repoId: row.repoId });
     }
   }
 
-  function onIngested(newRepoId: string) {
-    void loadRepos(newRepoId).then(() => {
-      setAdding(false);
-      setHops([]);
-      setAnswer(null);
-    });
+  async function onSubmit(text: string) {
+    setTraceMessageId(null);
+    if (!activeThread || !activeThread.repoId) {
+      await startIngest(text);
+      await refreshRepos();
+      return;
+    }
+    await ask(activeThread, text);
   }
 
-  const selected = repos.find((repo) => repo.repo_id === repoId);
-  const examples = examplesFor(repoId);
-  const hasRepos = repos.length > 0;
+  const activeRepo = activeThread?.repoId
+    ? repos.find((repo) => repo.repo_id === activeThread.repoId)
+    : undefined;
+
+  const tracedMessage = activeThread?.messages.find(
+    (message) => message.id === traceMessageId && message.kind === "assistant",
+  );
+  const tracedHops =
+    tracedMessage && tracedMessage.kind === "assistant" ? tracedMessage.hops : null;
+
+  const showHero = !activeThread;
 
   return (
-    <div className="app">
-      <header className="header">
-        <div>
-          <h1>CodeGraph</h1>
-          <p className="tagline">
-            Index a Python repository, then ask it questions. Every answer is
-            traced back to the code it came from.
-          </p>
-        </div>
-        {hasRepos && (
-          <div className="controls">
-            <label>
-              <span>Repository</span>
-              <select value={repoId} onChange={(e) => setRepoId(e.target.value)}>
-                {repos.map((repo) => (
-                  <option key={repo.repo_id} value={repo.repo_id}>
-                    {repo.repo_id} ({repo.nodes.toLocaleString()} nodes)
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Retrieval</span>
-              <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
-                <option value="multi_hop">Multi-hop agent</option>
-                <option value="single_hop">Single query</option>
-              </select>
-            </label>
-          </div>
-        )}
-      </header>
+    <div className={`shell${sidebarOpen ? "" : " collapsed"}`}>
+      <Sidebar
+        rows={rows}
+        activeThreadId={store.activeThreadId}
+        activeRepoId={activeThread?.repoId ?? null}
+        open={sidebarOpen}
+        reposError={reposError}
+        onToggle={() => setSidebarOpen((open) => !open)}
+        onSelect={selectRow}
+        onNew={() => {
+          setTraceMessageId(null);
+          dispatch({ type: "activeThreadSet", threadId: null });
+        }}
+      />
 
-      {hasRepos && (
-        <button
-          type="button"
-          className="toggle-add"
-          onClick={() => setAdding((current) => !current)}
-        >
-          {adding ? "− Cancel" : "+ Index another repository"}
-        </button>
-      )}
-
-      {(adding || !hasRepos) && <AddRepo onIngested={onIngested} />}
-
-      {hasRepos && (
-        <>
-          {selected && !selected.has_source && (
-            <p className="notice">
-              No local checkout for {selected.repo_id} — reading source and grep
-              are unavailable, so the agent can only use the graph and semantic
-              search.
-            </p>
-          )}
-
-          <form
-            className="ask"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void ask(question);
-            }}
+      <main className="main">
+        {!sidebarOpen && (
+          <button
+            type="button"
+            className="icon-button expand"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Expand sidebar"
           >
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. Where is SSL certificate verification handled?"
-              disabled={running || !repoId}
-            />
-            <button type="submit" disabled={running || !question.trim() || !repoId}>
-              {running ? "Investigating…" : "Ask"}
-            </button>
-          </form>
+            ›
+          </button>
+        )}
 
-          {!hops.length && !answer && !running && (
-            <div className="examples">
-              {examples.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => {
-                    setQuestion(example);
-                    void ask(example);
-                  }}
-                  disabled={!repoId}
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+        {showHero ? (
+          <div className="hero">
+            <h1>CodeGraph</h1>
+            <p className="tagline">
+              Index a Python repository, then ask it questions. Every answer is
+              traced back to the code it came from.
+            </p>
+          </div>
+        ) : (
+          <Thread
+            thread={activeThread}
+            nodes={activeRepo?.nodes ?? null}
+            hasSource={activeRepo?.has_source ?? true}
+            onAsk={(text) => void onSubmit(text)}
+            onOpenTrace={setTraceMessageId}
+          />
+        )}
 
-      {error && <p className="error">{error}</p>}
+        <div className={`composer-dock${showHero ? " composer-dock--hero" : ""}`}>
+          <Composer
+            variant={showHero ? "hero" : "docked"}
+            intent={activeThread?.repoId ? "question" : "url"}
+            disabled={running}
+            onSubmit={(text) => void onSubmit(text)}
+          />
+        </div>
+      </main>
 
-      <HopTrace hops={hops} running={running} mode={mode} />
-      {answer && <Answer answer={answer} />}
+      <TracePanel
+        hops={tracedHops}
+        running={running}
+        onClose={() => setTraceMessageId(null)}
+      />
     </div>
   );
 }

@@ -77,7 +77,7 @@ Naive RAG (chunk the repo, embed, cosine-similarity retrieve) fails at this beca
 - **Ingestion time:** a mid-sized repo (~10-50k LOC) should ingest in a few minutes, not tens of minutes.
 - **Query latency:** answers returned in well under 30s for typical questions (agentic multi-hop may take longer than single-shot, that's acceptable and should be shown, not hidden).
 - **Correctness over completeness:** prefer one language that works reliably, with limitations documented, over broad language claims that are only partially true.
-- **Transparency:** the UI should show *which tool(s)* were used to answer a question (graph query text, vector hits, files grepped) — this is a differentiator worth surfacing, not hiding as an implementation detail.
+- **Transparency:** every answer must expose *which tool(s)* produced it (graph query text, vector hits, files grepped), reachable in one click rather than buried. The retrieval trace is a first-class part of the product, not debug output — it is the evidence an answer came from the codebase.
 
 ## 7. Success Metrics
 

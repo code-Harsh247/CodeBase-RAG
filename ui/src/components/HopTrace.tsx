@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { HopEvent, Mode } from "../api";
+import type { HopEvent } from "../api";
 
-const TOOL_LABELS: Record<string, string> = {
+export const TOOL_LABELS: Record<string, string> = {
   graph_query: "graph query",
   semantic_search: "semantic search",
   read_code: "read source",
@@ -12,18 +12,9 @@ const TOOL_LABELS: Record<string, string> = {
  * The investigation, shown as it happens.
  *
  * This is the part worth looking at: it is the evidence that an answer came
- * from the repository rather than from the model's memory, and it is what
- * distinguishes multi-hop retrieval from a single lookup.
+ * from the repository rather than from the model's memory.
  */
-export function HopTrace({
-  hops,
-  running,
-  mode,
-}: {
-  hops: HopEvent[];
-  running: boolean;
-  mode: Mode;
-}) {
+export function HopTrace({ hops, running }: { hops: HopEvent[]; running: boolean }) {
   if (!hops.length && !running) return null;
 
   return (
@@ -31,7 +22,7 @@ export function HopTrace({
       <h2>
         Retrieval trace
         <span className="muted">
-          {mode === "single_hop" ? "one graph query" : `${hops.length} step${hops.length === 1 ? "" : "s"}`}
+          {hops.length} step{hops.length === 1 ? "" : "s"}
         </span>
       </h2>
       <ol>
@@ -49,7 +40,7 @@ export function HopTrace({
   );
 }
 
-function HopRow({ hop }: { hop: HopEvent }) {
+export function HopRow({ hop }: { hop: HopEvent }) {
   const [open, setOpen] = useState(false);
   const label = TOOL_LABELS[hop.tool] ?? hop.tool;
 

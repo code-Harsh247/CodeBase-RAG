@@ -1,0 +1,562 @@
+/* ==========================================================================
+   Shell: sidebar | main (thread + composer) | trace panel
+   ========================================================================== */
+
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1d212a;
+  --border: #262b36;
+  --text: #e6e8ee;
+  --muted: #8b93a7;
+  --accent: #6ea8fe;
+  --accent-dim: #2b4a7d;
+  --green: #64d69f;
+  --amber: #e0b464;
+  --red: #e07a7a;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --sidebar-w: 264px;
+  --trace-w: 480px;
+  --thread-max: 780px;
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* Grid track sizes animate between two lengths, so collapsing the sidebar
+   needs no JS measuring. */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: 100dvh;
+  overflow: hidden;
+  transition: grid-template-columns 180ms ease;
+}
+
+.shell.collapsed {
+  --sidebar-w: 0px;
+}
+
+/* ------------------------------------------------------------- sidebar */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 10px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow: hidden auto;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 10px;
+}
+
+.brand {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.icon-button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.icon-button.expand {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+}
+
+.new-project {
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.new-project:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+
+.project {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.project:hover {
+  background: var(--panel-2);
+}
+
+.project.active {
+  background: var(--accent-dim);
+  color: #fff;
+}
+
+.project.stale {
+  opacity: 0.55;
+}
+
+.project-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.empty-hint,
+.sidebar-error {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.sidebar-error {
+  margin-top: auto;
+  color: var(--amber);
+}
+
+/* ---------------------------------------------------------------- main */
+
+/* min-height:0 is load-bearing: without it the scrolling flex child refuses
+   to shrink and the page scrolls instead of the thread. */
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.hero {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px 20px;
+  text-align: center;
+  animation: rise 240ms ease both;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--muted);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.thread-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.thread-inner {
+  max-width: var(--thread-max);
+  margin-inline: auto;
+  padding: 28px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.thread-empty {
+  padding: 24px 0 4px;
+}
+
+.thread-empty h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-family: var(--mono);
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.thread-empty .examples {
+  margin-top: 16px;
+}
+
+/* ------------------------------------------------------------ messages */
+
+/* Cheap virtualisation: most of the benefit for one declaration. */
+.msg {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
+  animation: rise 200ms ease both;
+}
+
+.msg--user {
+  align-self: flex-end;
+  max-width: 80%;
+  background: var(--accent-dim);
+  border-radius: var(--radius) var(--radius) 4px var(--radius);
+  padding: 10px 14px;
+}
+
+.msg--user p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.msg--assistant,
+.msg--ingest {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.msg-label {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.trace-button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.trace-button:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+/* ------------------------------------------------------- ingest stages */
+
+.stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+  opacity: 0.45;
+}
+
+.stage.done {
+  opacity: 1;
+}
+
+.stage.active {
+  color: var(--accent);
+}
+
+.stage-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.stage.active .stage-dot {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------ composer */
+
+.composer-dock {
+  flex: 0 0 auto;
+  padding: 0 24px 22px;
+}
+
+.composer-dock--hero {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  width: 100%;
+  max-width: var(--thread-max);
+  margin-inline: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 10px 10px 14px;
+}
+
+.composer:focus-within {
+  border-color: var(--accent-dim);
+}
+
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  padding: 6px 0;
+  max-height: 200px;
+}
+
+.composer textarea::placeholder {
+  color: var(--muted);
+}
+
+.composer button {
+  flex-shrink: 0;
+  background: var(--accent);
+  border: none;
+  color: #0b1020;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+
+.composer button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------- trace panel */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 3;
+}
+
+/* transform is animatable and cheap; width is neither. */
+.trace-panel {
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  z-index: 4;
+  width: min(var(--trace-w), 92vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 220ms ease;
+}
+
+.trace-panel.open {
+  transform: translateX(0);
+}
+
+.trace-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 12px 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.trace-head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.trace-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+}
+
+.trace-body ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ------------------------------------------------------------ examples */
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.examples button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.examples button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+
+.notice,
+.error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.notice {
+  background: rgba(224, 180, 100, 0.1);
+  border: 1px solid rgba(224, 180, 100, 0.3);
+  color: var(--amber);
+}
+
+.error {
+  background: rgba(224, 122, 122, 0.1);
+  border: 1px solid rgba(224, 122, 122, 0.3);
+  color: var(--red);
+}
+
+.ingest-done {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: rgba(100, 214, 159, 0.1);
+  border: 1px solid rgba(100, 214, 159, 0.3);
+  color: var(--green);
+}
+
+.ingest-done strong {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .trace-panel,
+  .msg,
+  .hero {
+    transition: none;
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    --sidebar-w: 0px;
+  }
+  .shell:not(.collapsed) {
+    --sidebar-w: 100vw;
+  }
+}

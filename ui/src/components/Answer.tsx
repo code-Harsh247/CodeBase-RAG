@@ -122,6 +122,36 @@ function renderBody(text: string): ReactNode[] {
   return blocks;
 }
 
+/**
+ * The formatted answer text.
+ *
+ * Callers must render this inside an element carrying `className="answer"`:
+ * every style rule for answer content is descendant-scoped (`.answer p`,
+ * `.answer code`, `.answer table`…), so without that wrapper the formatting
+ * silently disappears.
+ */
+export function AnswerBody({ text }: { text: string }) {
+  return <>{renderBody(text)}</>;
+}
+
+/** The "retrieved from" footer of file:line chips. */
+export function Locations({ locations }: { locations: string[] }) {
+  if (!locations.length) return null;
+  return (
+    <footer>
+      <span className="muted">Retrieved from</span>
+      <div className="chips">
+        {locations.slice(0, 12).map((location) => (
+          <code key={location}>{location}</code>
+        ))}
+        {locations.length > 12 && (
+          <span className="muted">+{locations.length - 12} more</span>
+        )}
+      </div>
+    </footer>
+  );
+}
+
 export function Answer({ answer }: { answer: AnswerEvent }) {
   return (
     <section className="answer">
@@ -132,22 +162,8 @@ export function Answer({ answer }: { answer: AnswerEvent }) {
           {answer.usage.tokens.toLocaleString()} tokens
         </span>
       </h2>
-
-      {renderBody(answer.answer)}
-
-      {answer.locations.length > 0 && (
-        <footer>
-          <span className="muted">Retrieved from</span>
-          <div className="chips">
-            {answer.locations.slice(0, 12).map((location) => (
-              <code key={location}>{location}</code>
-            ))}
-            {answer.locations.length > 12 && (
-              <span className="muted">+{answer.locations.length - 12} more</span>
-            )}
-          </div>
-        </footer>
-      )}
+      <AnswerBody text={answer.answer} />
+      <Locations locations={answer.locations} />
     </section>
   );
 }

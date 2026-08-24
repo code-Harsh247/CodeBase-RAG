@@ -124,9 +124,11 @@ uvicorn api.server:app --port 8000
 cd ui && npm install && npm run dev
 ```
 
-Then open http://localhost:5173, paste a GitHub URL, and ask about it — indexing streams its progress (clone, parse, resolve, build graph, embed) rather than sitting behind a spinner, and the repository is selected automatically when it finishes. The retrieval mode toggle switches between the multi-hop agent and the single-query path, which makes the difference measured below visible directly.
+Then open http://localhost:5173. Paste a GitHub URL into the centered input and it indexes, streaming each stage (clone, parse, resolve, build graph, embed) rather than sitting behind a spinner. The composer then docks to the bottom and the repository becomes a conversation you can keep asking questions in.
 
-Ingesting from the UI does the same work as `cli.py ingest`, so either entry point is fine.
+Past projects live in the collapsible left sidebar and their history persists in the browser, so switching between them restores what you asked. Every answer carries a **View retrieval trace** button that opens a side panel with the exact queries, searches and files the agent used to produce it.
+
+Ingesting from the UI does the same work as `cli.py ingest`, so either entry point is fine. The UI always uses multi-hop retrieval; `cli.py query --single-hop` is how you exercise the single-query path.
 
 ## Results
 

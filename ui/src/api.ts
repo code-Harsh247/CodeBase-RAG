@@ -105,7 +105,7 @@ async function streamPost<T>(
 
 /** Ask a question; `onEvent` fires per retrieval hop, then once with the answer. */
 export function streamQuery(
-  body: { repo_id: string; question: string; mode: Mode },
+  body: { repo_id: string; question: string; mode?: Mode },
   onEvent: (event: StreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
