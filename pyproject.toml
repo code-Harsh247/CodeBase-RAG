@@ -1,0 +1,39 @@
+[project]
+name = "codegraph"
+version = "0.1.0"
+description = "Graph-augmented codebase Q&A: ingest a public GitHub repo into a Neo4j knowledge graph and query it with a hybrid graph/vector/grep agent."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "tree-sitter>=0.23",
+    "tree-sitter-python>=0.23",
+    "tree-sitter-typescript>=0.23",
+    "neo4j>=5.24",
+    "chromadb>=0.5",
+    "anthropic>=0.40",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "streamlit>=1.39",
+    "pydantic>=2.9",
+    "python-dotenv>=1.0",
+    "gitpython>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.7",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ingestion*", "graph*", "retrieval*", "agent*", "evaluation*", "api*"]
