@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -124,15 +125,27 @@ def ingest(
     include_tests: bool = False,
     refresh: bool = False,
     vector_store: VectorStore | None = None,
+    on_progress: Callable[[str, str], None] | None = None,
 ) -> IngestionSummary:
-    """Ingest a GitHub URL or a local directory path into the graph."""
+    """Ingest a GitHub URL or a local directory path into the graph.
+
+    ``on_progress(stage, detail)`` is called as each stage begins. Ingestion
+    takes tens of seconds and its slowest parts (cloning, embedding) give no
+    output of their own, so a caller driving a UI needs to be told what is
+    happening rather than showing an unexplained wait.
+    """
     started = time.perf_counter()
+    report = on_progress or (lambda stage, detail: None)
 
     path = Path(source)
+    report("clone", f"fetching {source}")
     repo = local_repo(path) if path.exists() else clone_repo(source, refresh=refresh)
     logger.info("ingesting %s from %s", repo.repo_id, repo.path)
 
+    report("parse", f"parsing {repo.repo_id}")
     modules, failures = parse_repository(repo, include_tests=include_tests)
+
+    report("resolve", f"resolving references across {len(modules)} modules")
     resolution = Resolver(modules).resolve()
 
     nodes: list[Node] = []
@@ -148,11 +161,13 @@ def ingest(
             node.properties.update(updates)
     nodes = _dedupe_nodes(nodes)
 
+    report("load", f"writing {len(nodes)} nodes to the graph")
     client.ensure_schema()
     client.delete_repo(repo.repo_id)
     node_counts = client.load_nodes(nodes)
     edge_counts = client.load_edges(_dedupe_edges(edges))
 
+    report("embed", "building the semantic index")
     store = vector_store if vector_store is not None else VectorStore()
     embedded = store.index(repo.repo_id, nodes)
 

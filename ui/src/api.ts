@@ -28,6 +28,24 @@ export interface ErrorEvent {
 
 export type StreamEvent = HopEvent | AnswerEvent | ErrorEvent;
 
+export interface ProgressEvent {
+  type: "progress";
+  stage: string;
+  detail: string;
+}
+
+export interface DoneEvent {
+  type: "done";
+  repo_id: string;
+  files: number;
+  nodes: number;
+  edges: number;
+  embedded: number;
+  seconds: number;
+}
+
+export type IngestEvent = ProgressEvent | DoneEvent | ErrorEvent;
+
 export type Mode = "multi_hop" | "single_hop";
 
 export async function fetchRepos(): Promise<Repo[]> {
@@ -37,18 +55,18 @@ export async function fetchRepos(): Promise<Repo[]> {
 }
 
 /**
- * Stream a question's answer, calling `onEvent` as each hop lands.
+ * POST a JSON body and stream the Server-Sent Events that come back.
  *
- * The server sends Server-Sent Events, but this uses fetch rather than
- * EventSource because the request is a POST with a JSON body, which
- * EventSource cannot make.
+ * Uses fetch rather than EventSource because these are POSTs with a JSON body,
+ * which EventSource cannot make.
  */
-export async function streamQuery(
-  body: { repo_id: string; question: string; mode: Mode },
-  onEvent: (event: StreamEvent) => void,
+async function streamPost<T>(
+  path: string,
+  body: unknown,
+  onEvent: (event: T) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await fetch("/api/query", {
+  const response = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -77,10 +95,28 @@ export async function streamQuery(
       const line = frame.split("\n").find((item) => item.startsWith("data: "));
       if (!line) continue;
       try {
-        onEvent(JSON.parse(line.slice(6)) as StreamEvent);
+        onEvent(JSON.parse(line.slice(6)) as T);
       } catch {
         // A malformed frame should not abort a run that is otherwise working.
       }
     }
   }
+}
+
+/** Ask a question; `onEvent` fires per retrieval hop, then once with the answer. */
+export function streamQuery(
+  body: { repo_id: string; question: string; mode: Mode },
+  onEvent: (event: StreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamPost("/api/query", body, onEvent, signal);
+}
+
+/** Clone and index a repository; `onEvent` fires per stage, then once when done. */
+export function streamIngest(
+  body: { url: string; refresh: boolean },
+  onEvent: (event: IngestEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamPost("/api/ingest", body, onEvent, signal);
 }

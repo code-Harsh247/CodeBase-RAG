@@ -431,3 +431,75 @@ button:focus-visible {
 .answer tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* ------------------------------------------------------------- add repo */
+
+.toggle-add {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 0 0 12px;
+  cursor: pointer;
+}
+
+.toggle-add:hover {
+  color: var(--accent);
+}
+
+.add-repo {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.add-repo form {
+  display: flex;
+  gap: 10px;
+}
+
+.add-repo input {
+  flex: 1;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.add-repo button {
+  padding: 12px 20px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1020;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.add-repo button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.add-repo .thinking {
+  margin-top: 14px;
+}
+
+.ingest-done {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: rgba(100, 214, 159, 0.1);
+  border: 1px solid rgba(100, 214, 159, 0.3);
+  color: var(--green);
+}
+
+.ingest-done strong {
+  color: #fff;
+}
+
+.add-repo .error {
+  margin: 14px 0 0;
+}

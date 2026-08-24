@@ -25,7 +25,8 @@ from agent.provider import get_provider
 from agent.query_agent import QueryAgent
 from graph.neo4j_client import Neo4jClient
 from graph.schema import SHARED_LABEL
-from ingestion.repo import DEFAULT_CLONE_ROOT
+from ingestion.pipeline import ingest
+from ingestion.repo import DEFAULT_CLONE_ROOT, parse_github_url
 from retrieval.tools import RetrievalTools
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,12 @@ class QueryRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     #: "multi_hop" investigates with tools; "single_hop" runs one Cypher query.
     mode: str = "multi_hop"
+
+
+class IngestRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=500)
+    #: Re-clone and rebuild even if the repository is already indexed.
+    refresh: bool = False
 
 
 def _client() -> Neo4jClient:
@@ -171,6 +178,81 @@ def _stream_answer(request: QueryRequest) -> Iterator[str]:
         if item is None:
             break
         yield _event(item)
+
+
+def _readable_failure(exc: Exception) -> str:
+    """Turn a clone failure into something a person can act on.
+
+    A raw GitCommandError is several lines of command line and stderr; the
+    part that matters is almost always "that repository is not reachable".
+    """
+    text = str(exc)
+    if "Repository not found" in text or "not found" in text.lower():
+        return (
+            "Repository not found. Check the URL, and note that private "
+            "repositories are not supported."
+        )
+    if "could not resolve host" in text.lower() or "unable to access" in text.lower():
+        return "Could not reach GitHub. Check your network connection."
+    return f"{type(exc).__name__}: {text[:300]}"
+
+
+def _stream_ingest(request: IngestRequest) -> Iterator[str]:
+    """Clone, parse and index a repository, reporting each stage as it starts."""
+    events: queue.Queue = queue.Queue()
+
+    def work() -> None:
+        try:
+            # Reject anything that is not a GitHub repository before cloning:
+            # this endpoint runs `git clone` on whatever it is given.
+            owner, name = parse_github_url(request.url)
+            events.put({"type": "progress", "stage": "start", "detail": f"{owner}/{name}"})
+
+            with _client() as client:
+                summary = ingest(
+                    request.url,
+                    client,
+                    refresh=request.refresh,
+                    on_progress=lambda stage, detail: events.put(
+                        {"type": "progress", "stage": stage, "detail": detail}
+                    ),
+                )
+            events.put(
+                {
+                    "type": "done",
+                    "repo_id": summary.repo_id,
+                    "files": summary.files_parsed,
+                    "nodes": sum(summary.node_counts.values()),
+                    "edges": sum(summary.edge_counts.values()),
+                    "embedded": summary.embedded,
+                    "seconds": round(summary.duration_seconds, 1),
+                }
+            )
+        except ValueError as exc:
+            events.put({"type": "error", "message": str(exc)})
+        except Exception as exc:
+            logger.exception("ingest failed")
+            events.put({"type": "error", "message": _readable_failure(exc)})
+        finally:
+            events.put(None)
+
+    thread = threading.Thread(target=work, daemon=True)
+    thread.start()
+
+    while True:
+        item = events.get()
+        if item is None:
+            break
+        yield _event(item)
+
+
+@app.post("/api/ingest")
+def ingest_repo(request: IngestRequest) -> StreamingResponse:
+    return StreamingResponse(
+        _stream_ingest(request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/query")
