@@ -18,7 +18,6 @@ exist to close that gap.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Literal
 
@@ -147,7 +146,10 @@ def grade_answer(
             max_tokens=GRADER_MAX_TOKENS,
             effort="low",
         )
-    except (ValueError, json.JSONDecodeError, RuntimeError) as exc:
+    except Exception as exc:  # noqa: BLE001
+        # Any provider failure — a rate limit, a malformed response, a network
+        # blip — must degrade this one grade, never end a run that may already
+        # represent an hour of paid calls.
         return AnswerGrade("wrong", f"Grader failed: {exc}", missing)
 
     if usage is not None:

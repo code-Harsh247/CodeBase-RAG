@@ -1,0 +1,206 @@
+{
+  "repo_id": "psf/requests",
+  "source_commit": "8f8b212de8c2",
+  "notes": "Answers were written by reading src/requests directly and confirming each fact against the source, not by running either system. Locations are the code that genuinely answers the question: for a 'what calls X' question they are the call sites, not the definition of X.",
+  "questions": [
+    {
+      "id": "req-s01",
+      "question": "Which classes inherit directly from RequestException?",
+      "category": "structural",
+      "locations": [
+        "src/requests/exceptions.py:38",
+        "src/requests/exceptions.py:66",
+        "src/requests/exceptions.py:70",
+        "src/requests/exceptions.py:82",
+        "src/requests/exceptions.py:102",
+        "src/requests/exceptions.py:106",
+        "src/requests/exceptions.py:110",
+        "src/requests/exceptions.py:114",
+        "src/requests/exceptions.py:118",
+        "src/requests/exceptions.py:122",
+        "src/requests/exceptions.py:130",
+        "src/requests/exceptions.py:134",
+        "src/requests/exceptions.py:138",
+        "src/requests/exceptions.py:142",
+        "src/requests/exceptions.py:146"
+      ],
+      "answer": "Fifteen classes list RequestException as a direct base, all in src/requests/exceptions.py: InvalidJSONError, HTTPError, ConnectionError, Timeout, URLRequired, TooManyRedirects, MissingSchema, InvalidSchema, InvalidURL, InvalidHeader, ChunkedEncodingError, ContentDecodingError, StreamConsumedError, RetryError and UnrewindableBodyError. Several of them have a second base as well (ValueError, TypeError, BaseHTTPError).",
+      "must_mention": ["HTTPError", "ConnectionError", "Timeout"],
+      "notes": "Deliberately says 'directly': ProxyError, SSLError, ConnectTimeout, ReadTimeout, InvalidProxyURL and JSONDecodeError inherit from RequestException only transitively."
+    },
+    {
+      "id": "req-s02",
+      "question": "What does requests.api.get call?",
+      "category": "structural",
+      "locations": ["src/requests/api.py:74"],
+      "answer": "requests.api.get calls requests.api.request, passing the method name \"get\" along with the url and any keyword arguments.",
+      "must_mention": ["request"]
+    },
+    {
+      "id": "req-s03",
+      "question": "What calls the function _basic_auth_str?",
+      "category": "structural",
+      "locations": [
+        "src/requests/auth.py:112",
+        "src/requests/auth.py:120",
+        "src/requests/adapters.py:630",
+        "src/requests/sessions.py:366"
+      ],
+      "answer": "_basic_auth_str is called from four places: HTTPBasicAuth.__call__ and HTTPProxyAuth.__call__ in auth.py, HTTPAdapter.proxy_headers in adapters.py, and SessionRedirectMixin.rebuild_proxies in sessions.py. The first sets the Authorization header; the other three set Proxy-Authorization.",
+      "must_mention": ["HTTPBasicAuth", "HTTPProxyAuth"]
+    },
+    {
+      "id": "req-s04",
+      "question": "Which class does HTTPProxyAuth inherit from?",
+      "category": "structural",
+      "locations": ["src/requests/auth.py:116"],
+      "answer": "HTTPProxyAuth inherits from HTTPBasicAuth. It overrides __call__ to set the Proxy-Authorization header instead of Authorization.",
+      "must_mention": ["HTTPBasicAuth"]
+    },
+    {
+      "id": "req-s05",
+      "question": "Which classes does PreparedRequest inherit from?",
+      "category": "structural",
+      "locations": ["src/requests/models.py:378"],
+      "answer": "PreparedRequest inherits from two mixins, RequestEncodingMixin and RequestHooksMixin, both defined in models.py.",
+      "must_mention": ["RequestEncodingMixin", "RequestHooksMixin"]
+    },
+    {
+      "id": "req-s06",
+      "question": "What functions are defined in the hooks module?",
+      "category": "structural",
+      "locations": ["src/requests/hooks.py:25", "src/requests/hooks.py:32"],
+      "answer": "hooks.py defines two functions: default_hooks, which returns a dict mapping each event name to an empty list, and dispatch_hook, which runs a hook dictionary against a piece of data.",
+      "must_mention": ["default_hooks", "dispatch_hook"]
+    },
+    {
+      "id": "req-s07",
+      "question": "What methods does the HTTPDigestAuth class define?",
+      "category": "structural",
+      "locations": ["src/requests/auth.py:124"],
+      "answer": "HTTPDigestAuth defines six methods: __init__, init_per_thread_state, build_digest_header, handle_redirect, handle_401 and __call__. Unlike HTTPBasicAuth it does not define __eq__ or __ne__.",
+      "must_mention": ["build_digest_header", "handle_401"],
+      "notes": "build_digest_header contains several nested hash helpers (md5_utf8, sha_utf8, sha256_utf8, sha512_utf8, KD); those are inner functions, not methods of the class."
+    },
+    {
+      "id": "req-s08",
+      "question": "Where is dispatch_hook called from?",
+      "category": "structural",
+      "locations": ["src/requests/sessions.py:791"],
+      "answer": "dispatch_hook is called once, from Session.send in sessions.py, which dispatches the \"response\" hook over the response before returning it.",
+      "must_mention": ["send"]
+    },
+    {
+      "id": "req-m01",
+      "question": "When requests follows a redirect, which method decides whether to drop the Authorization header, and what does it compare?",
+      "category": "multi_hop",
+      "locations": ["src/requests/sessions.py:154", "src/requests/sessions.py:309"],
+      "answer": "SessionRedirectMixin.should_strip_auth makes the decision, and rebuild_auth calls it. It compares the old and new URL: a different hostname always strips the header, and otherwise a changed port or changed scheme strips it. There is one deliberate exception — an http to https redirect on the standard ports (80 to 443) keeps the header, for backwards compatibility.",
+      "must_mention": ["should_strip_auth"]
+    },
+    {
+      "id": "req-m02",
+      "question": "Which HTTP status codes cause requests to change the request method when following a redirect, and what does it change the method to?",
+      "category": "multi_hop",
+      "locations": ["src/requests/sessions.py:370"],
+      "answer": "SessionRedirectMixin.rebuild_method changes the method to GET in three cases: 303 See Other for any method except HEAD, 302 Found for any method except HEAD, and 301 Moved Permanently when the original method was POST.",
+      "must_mention": ["rebuild_method", "GET"]
+    },
+    {
+      "id": "req-m03",
+      "question": "Which method picks the transport adapter for a URL, and how do adapters get registered in the first place?",
+      "category": "multi_hop",
+      "locations": ["src/requests/sessions.py:870", "src/requests/sessions.py:888"],
+      "answer": "Session.get_adapter selects an adapter by matching the URL against the registered prefixes, and raises InvalidSchema if none matches. Adapters are registered by Session.mount, which stores the adapter under a prefix and keeps the mapping sorted so that longer, more specific prefixes are matched first.",
+      "must_mention": ["get_adapter", "mount"]
+    },
+    {
+      "id": "req-m04",
+      "question": "How does a redirect response get turned into the next request URL?",
+      "category": "multi_hop",
+      "locations": ["src/requests/sessions.py:134", "src/requests/sessions.py:186"],
+      "answer": "SessionRedirectMixin.get_redirect_target reads the Location header from a redirect response and returns it as a native string, or None when the response is not a redirect. resolve_redirects then uses that target, resolving relative URLs against the previous request and looping while further redirects are returned.",
+      "must_mention": ["get_redirect_target", "resolve_redirects"]
+    },
+    {
+      "id": "req-m05",
+      "question": "Which function builds the Basic auth header value, and which helper does it use to turn the encoded credentials into a string?",
+      "category": "multi_hop",
+      "locations": ["src/requests/auth.py:34", "src/requests/auth.py:71"],
+      "answer": "_basic_auth_str in auth.py builds the header value. It base64-encodes the username and password and passes the result through to_native_string, from _internal_utils, to produce the final \"Basic ...\" string.",
+      "must_mention": ["_basic_auth_str", "to_native_string"]
+    },
+    {
+      "id": "req-m06",
+      "question": "PreparedRequest has several prepare_* methods. Which one sets the request method, and what does it do to the value?",
+      "category": "multi_hop",
+      "locations": ["src/requests/models.py:467"],
+      "answer": "PreparedRequest.prepare_method sets self.method, upper-casing it and converting it to a native string with to_native_string when it is not None.",
+      "must_mention": ["prepare_method"]
+    },
+    {
+      "id": "req-c01",
+      "question": "Where is SSL certificate verification handled?",
+      "category": "conceptual",
+      "locations": ["src/requests/adapters.py:307"],
+      "answer": "HTTPAdapter.cert_verify in adapters.py handles it. It decides whether verification is on, picks the CA bundle (the default one or a user-supplied path), sets cert_reqs and ca_certs/ca_cert_dir on the urllib3 connection, and applies any client-side certificate given via the cert argument.",
+      "must_mention": ["cert_verify"]
+    },
+    {
+      "id": "req-c02",
+      "question": "How does requests convert a value that might be bytes into a string, and what encoding does it assume?",
+      "category": "conceptual",
+      "locations": ["src/requests/_internal_utils.py:26"],
+      "answer": "to_native_string in _internal_utils.py does this. It returns str input unchanged and decodes bytes input, assuming ASCII unless a different encoding is passed.",
+      "must_mention": ["to_native_string", "ascii"]
+    },
+    {
+      "id": "req-c03",
+      "question": "How does requests check whether a string contains only ASCII characters?",
+      "category": "conceptual",
+      "locations": ["src/requests/_internal_utils.py:39"],
+      "answer": "unicode_is_ascii in _internal_utils.py tries to encode the string as ASCII and returns True if that succeeds, or False if it raises UnicodeEncodeError.",
+      "must_mention": ["unicode_is_ascii"]
+    },
+    {
+      "id": "req-c04",
+      "question": "What data structure does requests use so that HTTP header lookups ignore case, and how does it compare two of them for equality?",
+      "category": "conceptual",
+      "locations": ["src/requests/structures.py:20", "src/requests/structures.py:80"],
+      "answer": "CaseInsensitiveDict in structures.py. It stores each entry keyed by the lower-cased header name while remembering the original casing, and its __eq__ compares two mappings by their lower-cased items, so case differences do not affect equality.",
+      "must_mention": ["CaseInsensitiveDict"]
+    },
+    {
+      "id": "req-c05",
+      "question": "How is the default set of hooks for a request created, and what does it contain?",
+      "category": "conceptual",
+      "locations": ["src/requests/hooks.py:25"],
+      "answer": "default_hooks in hooks.py builds it, returning a dictionary with one key for each name in HOOKS mapped to an empty list. In practice HOOKS contains only \"response\", so a fresh request starts with {\"response\": []}.",
+      "must_mention": ["default_hooks", "response"]
+    },
+    {
+      "id": "req-c06",
+      "question": "Where does requests decide how many redirects are too many, and what does it raise?",
+      "category": "conceptual",
+      "locations": ["src/requests/sessions.py:186", "src/requests/exceptions.py:106"],
+      "answer": "SessionRedirectMixin.resolve_redirects counts redirects and raises TooManyRedirects when the count exceeds the session's max_redirects, which defaults to DEFAULT_REDIRECT_LIMIT.",
+      "must_mention": ["TooManyRedirects"]
+    },
+    {
+      "id": "req-c07",
+      "question": "What happens to the Proxy-Authorization header when a request is redirected?",
+      "category": "conceptual",
+      "locations": ["src/requests/sessions.py:334"],
+      "answer": "SessionRedirectMixin.rebuild_proxies handles it. It unconditionally deletes any existing Proxy-Authorization header, then sets a fresh one via _basic_auth_str only when the new URL's proxy carries credentials and the scheme is not https — the header is deliberately withheld from TLS-tunnelled requests, where it could leak.",
+      "must_mention": ["rebuild_proxies", "Proxy-Authorization"]
+    },
+    {
+      "id": "req-c08",
+      "question": "How does requests attach Basic authentication credentials to an outgoing request?",
+      "category": "conceptual",
+      "locations": ["src/requests/auth.py:111"],
+      "answer": "HTTPBasicAuth is a callable auth object: its __call__ receives the PreparedRequest and sets the Authorization header to the value returned by _basic_auth_str, then returns the request.",
+      "must_mention": ["HTTPBasicAuth", "Authorization"]
+    }
+  ]
+}
