@@ -8,6 +8,8 @@ dist/
 
 .env
 .chroma/
+.chroma-baseline/
+*.log
 .repos/
 
 .pytest_cache/

@@ -130,11 +130,39 @@ Goal: quantified proof the graph-hybrid approach beats naive RAG.
 - [x] Provider decision made and implemented: develop the harness on Groq (free, but capped at 200,000 tokens/day — won't fit a full sweep); run the scored eval on `--provider openrouter --model qwen/qwen3-coder`, verified against real questions and under $0.25 for the whole sweep. `agent/openrouter_provider.py`. See ARCHITECTURE.md §2.4a for what else was tested (Gemini, `openrouter/free`, two local Ollama models) and rejected.
 - [x] Per-question token cost recorded alongside accuracy — the cost gap turned out to be the main caveat on the headline result
 - [x] Full run over all three systems, results in `evaluation/results.json`
-- [ ] Results table + analysis (where graph wins, where it doesn't, why)
-- [ ] Wire eval run into GitHub Actions as a regression check
-- [ ] Write up results in README (this is the artifact recruiters will actually read)
+- [x] Results table + analysis (where graph wins, where it doesn't, why) — below and in README
+- [ ] Wire eval run into GitHub Actions — **deferred, deliberately.** Each run costs real money (~$0.10-0.25) and ~15 minutes; running it on every push would spend budget on unrelated changes for no benefit. Worth revisiting as a manually-triggered workflow, not an on-push one.
+- [x] Write up results in README
 
-**Exit criteria:** a checked-in results table with a defensible, honest comparison — including cases where the baseline does fine, if that's what the data shows.
+**Exit criteria:** a checked-in results table with a defensible, honest comparison — including cases where the baseline does fine, if that's what the data shows. ✅
+
+## Phase 4 Results
+
+Full run, 22 questions × 3 systems, `qwen/qwen3-coder` via OpenRouter, same model and grader for every system. Total cost for the whole phase (probes, two smoke tests, two full runs): **$0.24**.
+
+| system | correct | partial | wrong | accuracy | recall | precision | tokens |
+|---|---|---|---|---|---|---|---|
+| naive RAG (baseline) | 14/22 | 6 | 2 | 64% | 0.66 | 0.15 | 73,684 |
+| graph, single Cypher query | 8/22 | 4 | 10 | 36% | 0.25 | 0.17 | 54,282 |
+| graph, multi-hop agent | 21/22 | 1 | 0 | 95% | 0.80 | 0.34 | 253,878 |
+
+By category:
+
+| category | naive RAG | single query | multi-hop agent |
+|---|---|---|---|
+| structural | 4/8 | 6/8 | 7/8 |
+| multi-hop | 4/6 | 0/6 | 6/6 |
+| conceptual | 6/8 | 2/8 | 8/8 |
+
+**The headline isn't "graph beats vectors" — it's that iteration is what makes structure usable.** Single-shot Cypher, run alone, is *worse* than naive RAG (36% vs 64%): one wrong query guess is fatal, with no way to recover, and it scores 0/6 on multi-hop questions almost by definition — those need a name discovered before the real query can be written, which a single shot cannot do. Naive RAG's fuzzy chunk retrieval is more forgiving of an imprecise question than a single exact query is.
+
+The multi-hop agent is where the thesis is actually earned: 95% accuracy, zero outright-wrong answers, and it wins every category — including a clean sweep on the two categories (multi-hop, conceptual) that most resemble what a naive RAG pitch fails to promise. That is a real, measured result, not an assumption baked into the eval.
+
+**The honest cost caveat:** multi-hop uses ~3.4x the baseline's tokens and ~4.7x single-shot's. The accuracy gain is large enough to justify it here, but "is the extra retrieval worth it" is a real tradeoff this project can name a number for, not a hand-wave.
+
+**A methodology note on precision:** all three systems show low retrieval precision (0.15–0.34). This is partly a real signal (naive RAG's 40-line chunks are mostly padding around the answer) and partly a measurement artifact — the multi-hop agent deliberately expands each hit into its graph neighbourhood (callers/callees), which is retrieved context beyond the ground-truth location and is scored as imprecision even when it helped the model reason. Recall and accuracy are the metrics this project's thesis rests on; precision is reported for honesty, not as a claim being made.
+
+**What would strengthen this further** (not done, listed plainly): a second eval repo to check the result isn't `psf/requests`-specific, and human-spot-checking a sample of the LLM grader's verdicts against the raw answers to confirm the grader itself isn't systematically biased toward one system's writing style.
 
 ---
 

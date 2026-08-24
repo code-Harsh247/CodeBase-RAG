@@ -2,7 +2,7 @@
 
 Graph-augmented codebase Q&A for **Python** repositories. Give it a public GitHub repo URL; it parses the code with tree-sitter into a Neo4j knowledge graph (functions, classes, calls, imports, inheritance) and answers natural-language questions using an agent that combines graph queries, semantic search, and grep — instead of naive chunk-and-embed RAG.
 
-**Status:** Phase 3 complete — ingests Python repositories and answers questions by iteratively querying the graph, searching semantically, and reading source, with cited answers. Evaluation against a naive-RAG baseline is Phase 4. See [docs/TASKS.md](docs/TASKS.md).
+**Status:** Phase 4 complete — measured against a naive-RAG baseline on 22 hand-verified questions, the multi-hop agent answers **95% correctly with zero wrong answers**, against 64% for chunk-and-embed RAG. See [Results](#results) below and [docs/TASKS.md](docs/TASKS.md).
 
 **Scope:** Python only, deliberately. The graph schema carries nothing Python-specific and a second language would mean writing one new visitor — but that is a post-MVP extension, not a v1 claim. Depth on one language with measured resolution quality beats a longer language list that is only partly true.
 
@@ -110,6 +110,24 @@ A local directory works anywhere a URL does, which is handy for testing:
 python cli.py ingest ./some/local/checkout
 ```
 
+## Results
+
+22 hand-verified questions over `psf/requests`, three systems scored on identical inputs — same LLM, same embedding model, same grader — so the gap reflects retrieval strategy, not model choice. Full methodology: [docs/ARCHITECTURE.md §2.6](docs/ARCHITECTURE.md).
+
+| system | accuracy | wrong | tokens/question |
+|---|---|---|---|
+| naive RAG (chunk + embed) | 64% | 2 | ~3,350 |
+| graph, single Cypher query | 36% | 10 | ~2,470 |
+| **graph, multi-hop agent** | **95%** | **0** | ~11,540 |
+
+The interesting finding isn't "graph beats vectors" — it's that **iteration is what makes structure useful**. A single Cypher query, run alone, is *worse* than naive RAG: one wrong guess is fatal with no way to recover, and it scores 0/6 on questions that need a name discovered before the real query can even be written. Multi-hop retrieval — query, look at the result, search semantically, read the source, decide the next step — is what turns "the graph didn't have that" into a solved problem, at a real cost: ~3.4x the baseline's tokens.
+
+Reproduce it:
+
+```bash
+python cli.py eval --provider openrouter --model qwen/qwen3-coder
+```
+
 ## Development
 
 ```bash
@@ -121,5 +139,5 @@ Tests that need a live Neo4j skip automatically when none is reachable.
 ## Docs
 
 - [Product Requirements](docs/PRD.md)
-- [Architecture & Design](docs/ARCHITECTURE.md) — including [measured resolution limitations](docs/ARCHITECTURE.md#resolution-what-works-and-what-does-not)
-- [Task Breakdown](docs/TASKS.md)
+- [Architecture & Design](docs/ARCHITECTURE.md) — including [measured resolution limitations](docs/ARCHITECTURE.md#resolution-what-works-and-what-does-not) and the [eval methodology](docs/ARCHITECTURE.md#26-evaluation-harness)
+- [Task Breakdown & full Phase 4 results](docs/TASKS.md)

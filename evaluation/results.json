@@ -5,9 +5,9 @@
       "question_id": "req-s01",
       "system": "baseline",
       "category": "structural",
-      "answer": "The classes that inherit directly from `RequestException` are:\n\n- `HTTPError` (src/requests/exceptions.py:61)\n- `ConnectionError` (src/requests/exceptions.py:65)\n- `Timeout` (src/requests/exceptions.py:77)\n- `URLRequired` (src/requests/exceptions.py:125)\n- `TooManyRedirects` (src/requests/exceptions.py:128)\n- `MissingSchema` (src/requests/exceptions.py:131)\n- `InvalidSchema` (src/requests/exceptions.py:135)\n- `InvalidURL` (src/requests/exceptions.py:138)\n- `InvalidHeader` (src/requests/exceptions.py:141)\n- `ChunkedEncodingError` (src/requests/exceptions.py:147)\n- `ContentDecodingError` (src/requests/exceptions.py:150)\n- `StreamConsumedError` (src/requests/exceptions.py:154)\n- `RetryError` (src/requests/exceptions.py:157)\n- `UnrewindableBodyError` (src/requests/exceptions.py:160)",
+      "answer": "The classes that inherit directly from `RequestException` are:\n\n- `HTTPError` (src/requests/exceptions.py:61)\n- `ConnectionError` (src/requests/exceptions.py:65)\n- `Timeout` (src/requests/exceptions.py:75)\n- `URLRequired` (src/requests/exceptions.py:95)\n- `TooManyRedirects` (src/requests/exceptions.py:98)\n- `MissingSchema` (src/requests/exceptions.py:101)\n- `InvalidSchema` (src/requests/exceptions.py:105)\n- `InvalidURL` (src/requests/exceptions.py:109)\n- `InvalidHeader` (src/requests/exceptions.py:113)\n- `ChunkedEncodingError` (src/requests/exceptions.py:121)\n- `ContentDecodingError` (src/requests/exceptions.py:125)\n- `StreamConsumedError` (src/requests/exceptions.py:129)\n- `RetryError` (src/requests/exceptions.py:133)\n- `UnrewindableBodyError` (src/requests/exceptions.py:137)",
       "verdict": "partial",
-      "grade_reason": "The answer correctly lists 14 of the 15 classes that inherit directly from RequestException, missing only InvalidJSONError. It provides accurate file locations for each class. However, it fails to mention that several of these classes have additional base classes (ValueError, TypeError, BaseHTTPError) as noted in the reference answer. The omission of InvalidJSONError is a significant factual error since the question asks for all classes inheriting directly from RequestException.",
+      "grade_reason": "The answer correctly identifies 14 out of the 15 classes that inherit directly from RequestException, missing only InvalidJSONError. It accurately lists the class names and their locations in the source file. While it doesn't mention the additional inheritance details about ValueError, TypeError, and BaseHTTPError that are mentioned in the reference answer, the core factual content about which classes inherit from RequestException is largely correct. The omission of one class makes it incomplete but not incorrect.",
       "missing_mentions": [],
       "retrieval_recall": 0.933,
       "retrieval_precision": 0.375,
@@ -39,9 +39,9 @@
         "src/requests/exceptions.py:142",
         "src/requests/exceptions.py:146"
       ],
-      "tokens": 3374,
+      "tokens": 3372,
       "llm_calls": 2,
-      "seconds": 2.9,
+      "seconds": 6.2,
       "error": ""
     },
     {
@@ -50,7 +50,7 @@
       "category": "structural",
       "answer": "The classes that inherit directly from `RequestException` are:\n\n- `ChunkedEncodingError` (src/requests/exceptions.py:130)\n- `ConnectionError` (src/requests/exceptions.py:70)\n- `ContentDecodingError` (src/requests/exceptions.py:134)\n- `HTTPError` (src/requests/exceptions.py:66)\n- `InvalidHeader` (src/requests/exceptions.py:122)\n- `InvalidJSONError` (src/requests/exceptions.py:38)\n- `InvalidSchema` (src/requests/exceptions.py:114)\n- `InvalidURL` (src/requests/exceptions.py:118)\n- `MissingSchema` (src/requests/exceptions.py:110)\n- `RetryError` (src/requests/exceptions.py:142)\n- `StreamConsumedError` (src/requests/exceptions.py:138)\n- `Timeout` (src/requests/exceptions.py:82)\n- `TooManyRedirects` (src/requests/exceptions.py:106)\n- `URLRequired` (src/requests/exceptions.py:102)\n- `UnrewindableBodyError` (src/requests/exceptions.py:146)",
       "verdict": "correct",
-      "grade_reason": "The answer lists all 15 classes that inherit directly from RequestException, matching the reference answer exactly. The file paths and line numbers provided are consistent with the reference answer's claim that all these classes are in src/requests/exceptions.py. The answer is factually correct and fully responsive to the question.",
+      "grade_reason": "The answer lists all 15 classes that inherit directly from RequestException, matching the reference answer exactly. The file paths and line numbers provided correspond to the correct locations in the source code where these exceptions are defined. All classes mentioned do indeed have RequestException as a direct base class.",
       "missing_mentions": [],
       "retrieval_recall": 1.0,
       "retrieval_precision": 1.0,
@@ -89,18 +89,18 @@
         "src/requests/exceptions.py:142",
         "src/requests/exceptions.py:146"
       ],
-      "tokens": 3194,
+      "tokens": 3189,
       "llm_calls": 3,
-      "seconds": 5.5,
+      "seconds": 7.2,
       "error": ""
     },
     {
       "question_id": "req-s01",
       "system": "multi_hop",
       "category": "structural",
-      "answer": "The classes that inherit directly from `RequestException` are:\n\n1. `ChunkedEncodingError` (src/requests/exceptions.py:130)\n2. `ConnectionError` (src/requests/exceptions.py:70)\n3. `ContentDecodingError` (src/requests/exceptions.py:134)\n4. `HTTPError` (src/requests/exceptions.py:66)\n5. `InvalidHeader` (src/requests/exceptions.py:122)\n6. `InvalidJSONError` (src/requests/exceptions.py:38)\n7. `InvalidSchema` (src/requests/exceptions.py:114)\n8. `InvalidURL` (src/requests/exceptions.py:118)\n9. `MissingSchema` (src/requests/exceptions.py:110)\n10. `RetryError` (src/requests/exceptions.py:142)\n11. `StreamConsumedError` (src/requests/exceptions.py:138)\n12. `Timeout` (src/requests/exceptions.py:82)\n13. `TooManyRedirects` (src/requests/exceptions.py:106)\n14. `URLRequired` (src/requests/exceptions.py:102)\n15. `UnrewindableBodyError` (src/requests/exceptions.py:146)",
+      "answer": "The following classes inherit directly from `RequestException`:\n\n1. `requests.exceptions.ChunkedEncodingError` (src/requests/exceptions.py:130)\n2. `requests.exceptions.ConnectionError` (src/requests/exceptions.py:70)\n3. `requests.exceptions.ContentDecodingError` (src/requests/exceptions.py:134)\n4. `requests.exceptions.HTTPError` (src/requests/exceptions.py:66)\n5. `requests.exceptions.InvalidHeader` (src/requests/exceptions.py:122)\n6. `requests.exceptions.InvalidJSONError` (src/requests/exceptions.py:38)\n7. `requests.exceptions.InvalidSchema` (src/requests/exceptions.py:114)\n8. `requests.exceptions.InvalidURL` (src/requests/exceptions.py:118)\n9. `requests.exceptions.MissingSchema` (src/requests/exceptions.py:110)\n10. `requests.exceptions.RetryError` (src/requests/exceptions.py:142)\n11. `requests.exceptions.StreamConsumedError` (src/requests/exceptions.py:138)\n12. `requests.exceptions.Timeout` (src/requests/exceptions.py:82)\n13. `requests.exceptions.TooManyRedirects` (src/requests/exceptions.py:106)\n14. `requests.exceptions.URLRequired` (src/requests/exceptions.py:102)\n15. `requests.exceptions.UnrewindableBodyError` (src/requests/exceptions.py:146)",
       "verdict": "correct",
-      "grade_reason": "The answer lists all 15 classes that inherit directly from RequestException, matching the reference answer exactly. The file paths and line numbers provided are consistent with the reference answer's claim that all classes are in src/requests/exceptions.py. The answer is factually correct and complete.",
+      "grade_reason": "The answer lists all 15 classes that inherit directly from RequestException, matching the reference answer exactly. The file paths and line numbers are provided but are not part of the core factual claim being evaluated. The substance of the answer is fully correct and responsive to the question.",
       "missing_mentions": [],
       "retrieval_recall": 1.0,
       "retrieval_precision": 1.0,
@@ -139,21 +139,21 @@
         "src/requests/exceptions.py:142",
         "src/requests/exceptions.py:146"
       ],
-      "tokens": 5055,
+      "tokens": 5175,
       "llm_calls": 3,
-      "seconds": 5.2,
+      "seconds": 6.8,
       "error": ""
     },
     {
       "question_id": "req-s02",
       "system": "baseline",
       "category": "structural",
-      "answer": "`requests.api.get` calls the `request` function with the method `\"get\"` and the provided URL and parameters. This is shown in `src/requests/api.py:75-80`, where the `get` function is defined as:\n\n```python\ndef get(\n    url: _t.UriType, params: _t.ParamsType = None, **kwargs: Unpack[_t.GetKwargs]\n) -> Response:\n    ...\n    return request(\"get\", url, params=params, **kwargs)\n```",
+      "answer": "The `requests.api.get` function calls the `request` function with the method `\"get\"` and the provided URL and parameters. Specifically, it is defined as:\n\n```python\ndef get(\n    url: _t.UriType, params: _t.ParamsType = None, **kwargs: Unpack[_t.GetKwargs]\n) -> Response:\n    r\"\"\"Sends a GET request.\n\n    :param url: URL for the new :class:`Request` object.\n    :param params: (optional) Dictionary, list of tuples or bytes to send\n        in the query string for the :class:`Request`.\n    :param \\*\\*kwargs: Optional arguments that ``request`` takes.\n    :return: :class:`Response <Response>` object\n    :rtype: requests.Response\n    \"\"\"\n\n    return request(\"get\", url, params=params, **kwargs)\n```\n\nSource: `src/requests/api.py:61-100`",
       "verdict": "correct",
-      "grade_reason": "The answer accurately describes what requests.api.get calls - it calls the request function with the method 'get' and the provided URL and parameters. The quoted code shows the actual implementation where get() returns request('get', url, params=params, **kwargs), which matches the reference answer's description.",
+      "grade_reason": "The answer accurately states that requests.api.get calls the request function with method \"get\" and the provided URL and parameters. It correctly identifies the core behavior described in the reference answer and provides additional supporting evidence through the actual function definition.",
       "missing_mentions": [],
       "retrieval_recall": 1.0,
-      "retrieval_precision": 0.125,
+      "retrieval_precision": 0.25,
       "retrieval_hit": true,
       "retrieved": [
         "src/requests/__init__.py:1-40",
@@ -166,55 +166,1759 @@
         "src/requests/sessions.py:661-700"
       ],
       "expected": [
-        "src/requests/api.py:74"
+        "src/requests/api.py:74",
+        "src/requests/api.py:24"
       ],
-      "tokens": 3396,
+      "tokens": 3562,
       "llm_calls": 2,
-      "seconds": 2.5,
+      "seconds": 2.6,
       "error": ""
     },
     {
       "question_id": "req-s02",
       "system": "single_hop",
       "category": "structural",
-      "answer": "The function `requests.api.get` calls `requests.api.request` at line 24 in `src/requests/api.py`.",
-      "verdict": "correct",
-      "grade_reason": "The answer correctly identifies that `requests.api.get` calls `requests.api.request`, which matches the reference answer's core substance. However, it adds a specific detail about line 24 in `src/requests/api.py` which is not mentioned in the reference answer. While this additional detail doesn't contradict the reference answer, it's extraneous information not relevant to the question asked. The answer is factually correct but includes unnecessary specifics.",
+      "answer": "The function `requests.api.get` calls `requests.api.request` as shown in `src/requests/api.py:24`.",
+      "verdict": "partial",
+      "grade_reason": "The answer correctly identifies that requests.api.get calls requests.api.request, which matches the reference answer. However, it omits the important detail about passing the method name \"get\" along with the url and keyword arguments, making it incomplete.",
       "missing_mentions": [],
-      "retrieval_recall": 0.0,
-      "retrieval_precision": 0.0,
-      "retrieval_hit": false,
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 1.0,
+      "retrieval_hit": true,
       "retrieved": [
         "src/requests/api.py:24"
       ],
       "expected": [
-        "src/requests/api.py:74"
+        "src/requests/api.py:74",
+        "src/requests/api.py:24"
       ],
-      "tokens": 2343,
+      "tokens": 2284,
       "llm_calls": 3,
-      "seconds": 2.1,
+      "seconds": 4.2,
       "error": ""
     },
     {
       "question_id": "req-s02",
       "system": "multi_hop",
       "category": "structural",
-      "answer": "The function `requests.api.get` calls `requests.api.request`, as seen in the source file at `src/requests/api.py:24`.",
+      "answer": "The function `requests.api.get` calls `requests.api.request`, which is defined in `src/requests/api.py` at line 24.",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies that `requests.api.get` calls `requests.api.request`, which matches the reference answer. However, it adds additional information about the file location and line number that isn't part of the reference answer. While this extra information isn't incorrect, the core substance matches the reference answer completely.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 1.0,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/api.py:24"
+      ],
+      "expected": [
+        "src/requests/api.py:74",
+        "src/requests/api.py:24"
+      ],
+      "tokens": 4176,
+      "llm_calls": 3,
+      "seconds": 5.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-s03",
+      "system": "baseline",
+      "category": "structural",
+      "answer": "The function `_basic_auth_str` is called by the `__call__` method of the `HTTPBasicAuth` class and the `__call__` method of the `HTTPProxyAuth` class.\n\nSources:\n- `src/requests/auth.py:91-130`\n- `src/requests/auth.py:121-160`",
       "verdict": "partial",
-      "grade_reason": "The answer correctly identifies that requests.api.get calls requests.api.request, which matches the reference answer's main point. However, it omits the important detail about passing the method name 'get' along with the url and keyword arguments, which is a significant part of the complete explanation.",
+      "grade_reason": "The answer is incomplete as it only mentions two of the four places where `_basic_auth_str` is called, missing HTTPAdapter.proxy_headers in adapters.py and SessionRedirectMixin.rebuild_proxies in sessions.py. It also doesn't mention that the first two set the Authorization header while the other three set Proxy-Authorization.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.5,
+      "retrieval_precision": 0.25,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/auth.py:61-100",
+        "src/requests/auth.py:121-160",
+        "src/requests/auth.py:31-70",
+        "src/requests/auth.py:91-130",
+        "src/requests/auth.py:1-40",
+        "src/requests/utils.py:1051-1090",
+        "src/requests/sessions.py:151-190",
+        "src/requests/models.py:661-700"
+      ],
+      "expected": [
+        "src/requests/auth.py:112",
+        "src/requests/auth.py:120",
+        "src/requests/adapters.py:630",
+        "src/requests/sessions.py:366"
+      ],
+      "tokens": 3112,
+      "llm_calls": 2,
+      "seconds": 1.2,
+      "error": ""
+    },
+    {
+      "question_id": "req-s03",
+      "system": "single_hop",
+      "category": "structural",
+      "answer": "The function `_basic_auth_str` is called by the following functions:\n\n1. `requests.adapters.HTTPAdapter.proxy_headers` in `src/requests/adapters.py:613`\n2. `requests.auth.HTTPBasicAuth.__call__` in `src/requests/auth.py:111`\n3. `requests.auth.HTTPProxyAuth.__call__` in `src/requests/auth.py:119`\n4. `requests.sessions.SessionRedirectMixin.rebuild_proxies` in `src/requests/sessions.py:334`",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies all four functions that call _basic_auth_str, matching exactly what is stated in the reference answer. The answer provides the same substantive information as the reference, just with slightly different formatting and including line numbers.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.5,
+      "retrieval_precision": 0.5,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/adapters.py:613",
+        "src/requests/auth.py:111",
+        "src/requests/auth.py:119",
+        "src/requests/sessions.py:334"
+      ],
+      "expected": [
+        "src/requests/auth.py:112",
+        "src/requests/auth.py:120",
+        "src/requests/adapters.py:630",
+        "src/requests/sessions.py:366"
+      ],
+      "tokens": 2574,
+      "llm_calls": 3,
+      "seconds": 2.2,
+      "error": ""
+    },
+    {
+      "question_id": "req-s03",
+      "system": "multi_hop",
+      "category": "structural",
+      "answer": "The function `_basic_auth_str` is called by the following functions in the codebase:\n\n1. `requests.adapters.HTTPAdapter.proxy_headers` in `src/requests/adapters.py` at line 613.\n2. `requests.auth.HTTPBasicAuth.__call__` in `src/requests/auth.py` at line 111.\n3. `requests.auth.HTTPProxyAuth.__call__` in `src/requests/auth.py` at line 119.\n4. `requests.sessions.SessionRedirectMixin.rebuild_proxies` in `src/requests/sessions.py` at line 334.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately identifies all four callers of _basic_auth_str function, matching exactly what is stated in the reference answer. It correctly lists HTTPBasicAuth.__call__, HTTPProxyAuth.__call__, HTTPAdapter.proxy_headers, and SessionRedirectMixin.rebuild_proxies with their respective file locations. The answer is factually correct and fully responsive to the question.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.5,
+      "retrieval_precision": 0.5,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/adapters.py:613",
+        "src/requests/auth.py:111",
+        "src/requests/auth.py:119",
+        "src/requests/sessions.py:334"
+      ],
+      "expected": [
+        "src/requests/auth.py:112",
+        "src/requests/auth.py:120",
+        "src/requests/adapters.py:630",
+        "src/requests/sessions.py:366"
+      ],
+      "tokens": 4503,
+      "llm_calls": 3,
+      "seconds": 4.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-s04",
+      "system": "baseline",
+      "category": "structural",
+      "answer": "The provided excerpts do not contain information about a class named `HTTPProxyAuth` or its inheritance. Therefore, it is not possible to determine which class `HTTPProxyAuth` inherits from based on the given source files.",
+      "verdict": "wrong",
+      "grade_reason": "The answer states that HTTPProxyAuth does not inherit from HTTPBasicAuth, contradicting the reference answer. The reference clearly states that HTTPProxyAuth inherits from HTTPBasicAuth, while the answer claims it's not possible to determine the inheritance, which is incorrect.",
+      "missing_mentions": [
+        "HTTPBasicAuth"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/adapters.py:601-640",
+        "src/requests/adapters.py:271-310",
+        "src/requests/sessions.py:331-370",
+        "src/requests/adapters.py:511-550",
+        "src/requests/adapters.py:451-490",
+        "src/requests/utils.py:31-70",
+        "src/requests/auth.py:61-100",
+        "src/requests/sessions.py:421-460"
+      ],
+      "expected": [
+        "src/requests/auth.py:116"
+      ],
+      "tokens": 2982,
+      "llm_calls": 2,
+      "seconds": 2.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-s04",
+      "system": "single_hop",
+      "category": "structural",
+      "answer": "The class `HTTPProxyAuth` inherits from `requests.auth.HTTPBasicAuth`. This can be found in the file `src/requests/auth.py` at line 85.",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies that HTTPProxyAuth inherits from requests.auth.HTTPBasicAuth, which matches the reference answer's statement that it inherits from HTTPBasicAuth. The additional detail about the file location and line number doesn't affect the factual accuracy of the inheritance relationship.",
       "missing_mentions": [],
       "retrieval_recall": 0.0,
       "retrieval_precision": 0.0,
       "retrieval_hit": false,
       "retrieved": [
-        "src/requests/api.py:24"
+        "src/requests/auth.py:85"
       ],
       "expected": [
-        "src/requests/api.py:74"
+        "src/requests/auth.py:116"
       ],
-      "tokens": 4110,
+      "tokens": 2328,
+      "llm_calls": 3,
+      "seconds": 2.5,
+      "error": ""
+    },
+    {
+      "question_id": "req-s04",
+      "system": "multi_hop",
+      "category": "structural",
+      "answer": "The class `HTTPProxyAuth` inherits from `requests.auth.HTTPBasicAuth`. This is defined in the file `src/requests/auth.py` at line 85.",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies that HTTPProxyAuth inherits from requests.auth.HTTPBasicAuth, which matches the reference answer's statement that it inherits from HTTPBasicAuth. The additional detail about the file location and line number doesn't affect the factual accuracy.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/auth.py:85"
+      ],
+      "expected": [
+        "src/requests/auth.py:116"
+      ],
+      "tokens": 4173,
+      "llm_calls": 3,
+      "seconds": 3.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-s05",
+      "system": "baseline",
+      "category": "structural",
+      "answer": "The `PreparedRequest` class inherits from `RequestEncodingMixin` and `RequestHooksMixin`. \n\nThis is shown in the class definition:\n```python\nclass PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n```\nas seen in `src/requests/models.py:377`.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/adapters.py:601-640",
+        "src/requests/adapters.py:451-490",
+        "src/requests/models.py:361-400",
+        "src/requests/auth.py:91-130",
+        "src/requests/_types.py:31-70",
+        "src/requests/sessions.py:571-610",
+        "src/requests/models.py:271-310",
+        "src/requests/adapters.py:121-160"
+      ],
+      "expected": [
+        "src/requests/models.py:378"
+      ],
+      "tokens": 3287,
+      "llm_calls": 2,
+      "seconds": 1.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-s05",
+      "system": "single_hop",
+      "category": "structural",
+      "answer": "The `PreparedRequest` class inherits from two classes:\n\n1. `requests.models.RequestEncodingMixin` (defined in `src/requests/models.py` at line 108)\n2. `requests.models.RequestHooksMixin` (defined in `src/requests/models.py` at line 254)",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/models.py:108",
+        "src/requests/models.py:254"
+      ],
+      "expected": [
+        "src/requests/models.py:378"
+      ],
+      "tokens": 2348,
+      "llm_calls": 3,
+      "seconds": 4.2,
+      "error": ""
+    },
+    {
+      "question_id": "req-s05",
+      "system": "multi_hop",
+      "category": "structural",
+      "answer": "The `PreparedRequest` class inherits from two classes:\n\n1. `requests.models.RequestEncodingMixin` (defined in `src/requests/models.py` at line 108)\n2. `requests.models.RequestHooksMixin` (defined in `src/requests/models.py` at line 254)",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies that PreparedRequest inherits from RequestEncodingMixin and RequestHooksMixin, which matches the reference answer. The additional file path and line number information doesn't affect the factual accuracy.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/models.py:108",
+        "src/requests/models.py:254"
+      ],
+      "expected": [
+        "src/requests/models.py:378"
+      ],
+      "tokens": 4256,
+      "llm_calls": 3,
+      "seconds": 4.5,
+      "error": ""
+    },
+    {
+      "question_id": "req-s06",
+      "system": "baseline",
+      "category": "structural",
+      "answer": "The functions defined in the hooks module are:\n\n1. `default_hooks()` - Returns a dictionary with hook events as keys and empty lists as values.\n2. `dispatch_hook()` - Dispatches a hook dictionary on a given piece of data.\n\nSources:\n- `src/requests/hooks.py:15-16` shows the definition of `default_hooks()`\n- `src/requests/hooks.py:31-48` shows the definition of `dispatch_hook()`",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.25,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/hooks.py:1-40",
+        "src/requests/hooks.py:31-48",
+        "src/requests/models.py:271-310",
+        "src/requests/models.py:721-760",
+        "src/requests/_types.py:31-70",
+        "src/requests/models.py:301-340",
+        "src/requests/api.py:1-40",
+        "src/requests/models.py:451-490"
+      ],
+      "expected": [
+        "src/requests/hooks.py:25",
+        "src/requests/hooks.py:32"
+      ],
+      "tokens": 3025,
+      "llm_calls": 2,
+      "seconds": 3.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-s06",
+      "system": "single_hop",
+      "category": "structural",
+      "answer": "The graph contains no match for functions defined in the hooks module. It appears there may be no functions directly defined in a module named 'hooks', or the module might not exist in the codebase. You could try checking if the module name is correct or if it's located in a different namespace or package.",
+      "verdict": "wrong",
+      "grade_reason": "The answer incorrectly states that there are no functions defined in the hooks module or that the module might not exist, when the reference answer clearly identifies two specific functions (default_hooks and dispatch_hook) that are defined in hooks.py. This directly contradicts the factual information provided in the reference answer.",
+      "missing_mentions": [
+        "default_hooks",
+        "dispatch_hook"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/hooks.py:25",
+        "src/requests/hooks.py:32"
+      ],
+      "tokens": 2384,
+      "llm_calls": 3,
+      "seconds": 3.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-s06",
+      "system": "multi_hop",
+      "category": "structural",
+      "answer": "Based on the code graph, the hooks module (located at `src/requests/hooks.py`) defines two functions:\n\n1. `default_hooks` - defined at line 25\n2. `dispatch_hook` - defined at line 32\n\nThese are the only two functions directly defined in the hooks module.",
+      "verdict": "partial",
+      "grade_reason": "The answer correctly identifies the two functions (default_hooks and dispatch_hook) but omits the crucial descriptive information about what these functions actually do, which is the main substance of the reference answer. While it provides file location details not in the reference, it fails to explain the purpose/behavior of the functions as requested.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 1.0,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/hooks.py:25",
+        "src/requests/hooks.py:32"
+      ],
+      "expected": [
+        "src/requests/hooks.py:25",
+        "src/requests/hooks.py:32"
+      ],
+      "tokens": 4330,
+      "llm_calls": 3,
+      "seconds": 6.0,
+      "error": ""
+    },
+    {
+      "question_id": "req-s07",
+      "system": "baseline",
+      "category": "structural",
+      "answer": "The `HTTPDigestAuth` class defines the following methods:\n\n1. `__init__` - Initializes the instance with a username and password, and sets up per-thread local storage.\n2. `init_per_thread_state` - Ensures that state is initialized just once per thread.\n3. `build_digest_header` - Builds the digest header for the HTTP request.\n\nThese methods are defined in `src/requests/auth.py`.",
+      "verdict": "partial",
+      "grade_reason": "The answer is incomplete as it only lists 3 out of the 8 methods defined by the HTTPDigestAuth class, missing handle_redirect, handle_401, __call__, __eq__ and __ne__. While the listed methods are correct, the answer is significantly incomplete and therefore unhelpful.",
+      "missing_mentions": [
+        "handle_401"
+      ],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/auth.py:121-160",
+        "src/requests/auth.py:61-100",
+        "src/requests/adapters.py:601-640",
+        "src/requests/sessions.py:151-190",
+        "src/requests/adapters.py:451-490",
+        "src/requests/sessions.py:571-610",
+        "src/requests/api.py:1-40",
+        "src/requests/exceptions.py:91-130"
+      ],
+      "expected": [
+        "src/requests/auth.py:124"
+      ],
+      "tokens": 3381,
+      "llm_calls": 2,
+      "seconds": 3.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-s07",
+      "system": "single_hop",
+      "category": "structural",
+      "answer": "The `HTTPDigestAuth` class defines the following methods:\n\n- `__init__(self, username: bytes | str, password: bytes | str) -> None` (src/requests/auth.py:141)\n- `init_per_thread_state(self) -> None` (src/requests/auth.py:147)\n- `build_digest_header(self, method: str, url: str) -> str | None` (src/requests/auth.py:157)\n- `handle_redirect(self, r: Response, **kwargs: Any) -> None` (src/requests/auth.py:268)\n- `handle_401(self, r: Response, **kwargs: Any) -> Response` (src/requests/auth.py:273)\n- `__call__(self, r: PreparedRequest) -> PreparedRequest` (src/requests/auth.py:321)\n- `__eq__(self, other: object) -> bool` (src/requests/auth.py:345)\n- `__ne__(self, other: Any) -> bool` (src/requests/auth.py:353)",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately lists all eight methods defined by the HTTPDigestAuth class as stated in the reference answer, including their signatures and source file locations. The content matches the reference answer's substance exactly.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/auth.py:141",
+        "src/requests/auth.py:147",
+        "src/requests/auth.py:157",
+        "src/requests/auth.py:268",
+        "src/requests/auth.py:273",
+        "src/requests/auth.py:321",
+        "src/requests/auth.py:345",
+        "src/requests/auth.py:353"
+      ],
+      "expected": [
+        "src/requests/auth.py:124"
+      ],
+      "tokens": 2979,
+      "llm_calls": 3,
+      "seconds": 4.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-s07",
+      "system": "multi_hop",
+      "category": "structural",
+      "answer": "The `HTTPDigestAuth` class defines the following methods:\n\n1. `__init__(self, username: bytes | str, password: bytes | str) -> None`  \n   File: `src/requests/auth.py`, Line: 141  \n   Initializes the instance with a username and password.\n\n2. `init_per_thread_state(self) -> None`  \n   File: `src/requests/auth.py`, Line: 147  \n   Initializes per-thread state.\n\n3. `build_digest_header(self, method: str, url: str) -> str | None`  \n   File: `src/requests/auth.py`, Line: 157  \n   Builds the digest header for the given method and URL.\n\n4. `handle_redirect(self, r: Response, **kwargs: Any) -> None`  \n   File: `src/requests/auth.py`, Line: 268  \n   Handles redirects.\n\n5. `handle_401(self, r: Response, **kwargs: Any) -> Response`  \n   File: `src/requests/auth.py`, Line: 273  \n   Handles 401 responses.\n\n6. `__call__(self, r: PreparedRequest) -> PreparedRequest`  \n   File: `src/requests/auth.py`, Line: 321  \n   Makes the instance callable, processing the prepared request.\n\n7. `__eq__(self, other: object) -> bool`  \n   File: `src/requests/auth.py`, Line: 345  \n   Compares the instance for equality with another object.\n\n8. `__ne__(self, other: Any) -> bool`  \n   File: `src/requests/auth.py`, Line: 353  \n   Compares the instance for inequality with another object.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately lists all eight methods defined by the HTTPDigestAuth class as stated in the reference answer, including their signatures, file locations, and brief descriptions. The content matches the reference answer's substance exactly.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/auth.py:141",
+        "src/requests/auth.py:147",
+        "src/requests/auth.py:157",
+        "src/requests/auth.py:268",
+        "src/requests/auth.py:273",
+        "src/requests/auth.py:321",
+        "src/requests/auth.py:345",
+        "src/requests/auth.py:353"
+      ],
+      "expected": [
+        "src/requests/auth.py:124"
+      ],
+      "tokens": 5133,
+      "llm_calls": 3,
+      "seconds": 7.3,
+      "error": ""
+    },
+    {
+      "question_id": "req-s08",
+      "system": "baseline",
+      "category": "structural",
+      "answer": "The `dispatch_hook` function is called from within the `send` method of the `Session` class in `src/requests/sessions.py`. It is used to execute hooks associated with a request or response during the request lifecycle.\n\nFor example, it can be invoked like this:\n\n```python\ngen = session.send(prep, **send_kwargs)\nresponse = dispatch_hook(\"response\", hooks, gen, **kwargs)\n```\n\nThis shows that `dispatch_hook` is utilized internally by the `requests` library to handle hook execution, particularly for events such as `\"response\"`. \n\nSources:\n- `src/requests/hooks.py:31-48`\n- `src/requests/sessions.py:31-70` (import statement and implied usage)",
+      "verdict": "correct",
+      "grade_reason": "The answer is factually correct and responsive to the question. It correctly identifies that dispatch_hook is called from the Session.send method in sessions.py, which matches the reference answer. It also correctly explains that it's used to execute hooks during the request lifecycle, specifically mentioning the \"response\" hook. While it provides additional context and examples, the core information is accurate and directly answers where dispatch_hook is called from.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/hooks.py:31-48",
+        "src/requests/hooks.py:1-40",
+        "src/requests/models.py:271-310",
+        "src/requests/adapters.py:601-640",
+        "src/requests/sessions.py:31-70",
+        "src/requests/models.py:301-340",
+        "src/requests/api.py:1-40",
+        "src/requests/_types.py:31-70"
+      ],
+      "expected": [
+        "src/requests/sessions.py:791"
+      ],
+      "tokens": 3221,
+      "llm_calls": 2,
+      "seconds": 3.1,
+      "error": ""
+    },
+    {
+      "question_id": "req-s08",
+      "system": "single_hop",
+      "category": "structural",
+      "answer": "The function `dispatch_hook` is called from the method `requests.sessions.Session.send` at line 752 in the file `src/requests/sessions.py`.",
+      "verdict": "correct",
+      "grade_reason": "The answer is factually correct and responsive to the question. It identifies the correct location (Session.send in sessions.py) and even provides additional helpful detail about the specific line number and file path. While it doesn't mention the specific hook name ('response') or the timing (before returning the response), it correctly answers where dispatch_hook is called from, which is the core of the question.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/sessions.py:752"
+      ],
+      "expected": [
+        "src/requests/sessions.py:791"
+      ],
+      "tokens": 2352,
+      "llm_calls": 3,
+      "seconds": 2.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-s08",
+      "system": "multi_hop",
+      "category": "structural",
+      "answer": "The function `dispatch_hook` is called from the method `requests.sessions.Session.send`, specifically at line 752 in the file `src/requests/sessions.py`.",
+      "verdict": "correct",
+      "grade_reason": "The answer is factually correct and responsive to the question. It identifies the correct location (Session.send in sessions.py) and even provides additional helpful detail about the specific line number. This aligns with the reference answer's substance while being more specific.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/sessions.py:752"
+      ],
+      "expected": [
+        "src/requests/sessions.py:791"
+      ],
+      "tokens": 4178,
+      "llm_calls": 3,
+      "seconds": 5.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-m01",
+      "system": "baseline",
+      "category": "multi_hop",
+      "answer": "The method that decides whether to drop the Authorization header when following a redirect is `should_strip_auth`. It compares the hostnames, schemes, and ports of the old and new URLs to determine if the header should be removed.\n\nSpecifically, the `should_strip_auth` method:\n- Returns `True` if the hostnames differ (`old_parsed.hostname != new_parsed.hostname`)\n- Allows http \u2192 https redirects on standard ports (80 \u2192 443) as a special case\n- Compares port numbers and schemes to decide if the redirect stays within the same origin\n\nThis decision is then used in the `rebuild_auth` method which actually removes the Authorization header if `should_strip_auth` returns `True` (src/requests/sessions.py:301-340).",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.375,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:151-190",
+        "src/requests/sessions.py:121-160",
+        "src/requests/models.py:871-910",
+        "src/requests/sessions.py:301-340",
+        "src/requests/models.py:661-700",
+        "src/requests/models.py:781-820",
+        "src/requests/models.py:91-130",
+        "src/requests/sessions.py:331-370"
+      ],
+      "expected": [
+        "src/requests/sessions.py:154",
+        "src/requests/sessions.py:309"
+      ],
+      "tokens": 3450,
+      "llm_calls": 2,
+      "seconds": 4.7,
+      "error": ""
+    },
+    {
+      "question_id": "req-m01",
+      "system": "single_hop",
+      "category": "multi_hop",
+      "answer": "The method that decides whether to drop the Authorization header when following a redirect is `requests.sessions.SessionRedirectMixin.rebuild_auth` located in `src/requests/sessions.py` at line 309. This method compares the original request's host with the redirect target's host to determine if the Authorization header should be stripped.",
+      "verdict": "partial",
+      "grade_reason": "The answer is partially correct but contains a key inaccuracy. While it correctly identifies that the decision happens in the SessionRedirectMixin class and involves comparing hosts, it incorrectly states that `rebuild_auth` is the decision-making method. According to the reference answer, `should_strip_auth` is the method that makes the decision, and `rebuild_auth` calls it. Additionally, the answer oversimplifies the comparison logic - it's not just about host comparison but also involves scheme and port changes, with a specific exception for http to https redirects on standard ports.",
+      "missing_mentions": [
+        "should_strip_auth"
+      ],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 1.0,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:309"
+      ],
+      "expected": [
+        "src/requests/sessions.py:154",
+        "src/requests/sessions.py:309"
+      ],
+      "tokens": 2541,
+      "llm_calls": 3,
+      "seconds": 7.1,
+      "error": ""
+    },
+    {
+      "question_id": "req-m01",
+      "system": "multi_hop",
+      "category": "multi_hop",
+      "answer": "Based on the code analysis, when requests follows a redirect, the method that decides whether to drop the Authorization header is `requests.sessions.SessionRedirectMixin.should_strip_auth`. \n\nThis method compares the `old_url` (original URL) and `new_url` (redirected URL) by:\n\n1. Parsing both URLs using `urlparse()`\n2. Checking if the hostnames are different (`old_parsed.hostname != new_parsed.hostname`)\n3. Handling special cases for port and scheme changes, particularly allowing http to https redirects on standard ports (80 to 443)\n4. Comparing ports and schemes to determine if the authorization should be stripped\n\nThe method returns `True` (strip auth) if:\n- The hostnames are different\n- The ports or schemes have changed in a way that doesn't match the special cases\n\nThe method returns `False` (keep auth) if:\n- The hostnames are the same and it's a standard http to https redirect on default ports\n- The ports are both default ports for the same scheme\n\nThe decision is implemented in `src/requests/sessions.py:154` and is called by `rebuild_auth` method in the same file at line 309, which actually removes the Authorization header when `should_strip_auth` returns `True`.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.444,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:154",
+        "src/requests/auth.py:268",
+        "src/requests/auth.py:157",
+        "src/requests/auth.py:210",
+        "src/requests/auth.py:192",
+        "src/requests/auth.py:176",
+        "src/requests/sessions.py:154-184",
+        "src/requests/sessions.py:309",
+        "src/requests/sessions.py:309-332"
+      ],
+      "expected": [
+        "src/requests/sessions.py:154",
+        "src/requests/sessions.py:309"
+      ],
+      "tokens": 14300,
+      "llm_calls": 6,
+      "seconds": 15.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-m02",
+      "system": "baseline",
+      "category": "multi_hop",
+      "answer": "Status code 303 (codes.other) causes requests to change the request method to GET when following a redirect.\n\nStatus codes 301 (codes.moved), 302 (codes.found), 307 (codes.temporary_redirect), and 308 (codes.permanent_redirect) do not change the request method when following redirects according to the provided excerpts.",
+      "verdict": "partial",
+      "grade_reason": "The answer is partially correct but incomplete. It correctly identifies that status code 303 causes a change to GET method, but it misses the other cases mentioned in the reference answer. Specifically, it fails to mention that 302 also changes the method to GET (except for HEAD), and that 301 changes POST to GET. Additionally, the answer incorrectly implies that 301, 302, 307, and 308 never change methods, when in fact 301 and 302 do change methods in certain conditions as specified in the reference answer.",
+      "missing_mentions": [
+        "rebuild_method"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/models.py:871-910",
+        "src/requests/models.py:91-130",
+        "src/requests/sessions.py:121-160",
+        "src/requests/models.py:781-820",
+        "src/requests/sessions.py:151-190",
+        "src/requests/models.py:61-100",
+        "src/requests/status_codes.py:1-40",
+        "src/requests/__init__.py:1-40"
+      ],
+      "expected": [
+        "src/requests/sessions.py:370"
+      ],
+      "tokens": 3294,
+      "llm_calls": 2,
+      "seconds": 2.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-m02",
+      "system": "single_hop",
+      "category": "multi_hop",
+      "answer": "The graph contains no match for this query. The question asks about HTTP status codes and request method changes during redirects, but the query results are empty and unrelated to this topic. You might ask instead about how HTTP redirects are handled in the codebase or which functions process redirect responses.",
+      "verdict": "wrong",
+      "grade_reason": "The answer states that the graph contains no match for the query and that the query results are empty and unrelated to the topic. However, the reference answer clearly provides specific information about which HTTP status codes cause requests to change the request method when following a redirect (301, 302, 303) and what they change to (GET). This indicates that the answer failed to find or provide the correct information that was available, making it unresponsive to the question. An answer that honestly says it could not find the information is considered 'wrong' according to the grading criteria.",
+      "missing_mentions": [
+        "rebuild_method",
+        "GET"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/sessions.py:370"
+      ],
+      "tokens": 2494,
+      "llm_calls": 3,
+      "seconds": 11.2,
+      "error": ""
+    },
+    {
+      "question_id": "req-m02",
+      "system": "multi_hop",
+      "category": "multi_hop",
+      "answer": "Based on the code I've examined, I can determine which HTTP status codes cause requests to change the request method when following a redirect and what they change it to:\n\n1. Status code 303 (see_other): Changes the method to \"GET\" (except for HEAD requests)\n2. Status code 302 (found): Changes the method to \"GET\" (except for HEAD requests) \n3. Status code 301 (moved): Changes POST requests to \"GET\"\n\nThis behavior is implemented in the `rebuild_method` method of `requests.sessions.SessionRedirectMixin` in `src/requests/sessions.py:370`.\n\nWhat remains unresolved is the exact mapping of the symbolic names (`codes.see_other`, `codes.found`, `codes.moved`) to their numeric HTTP status codes, as I couldn't directly access the status_codes.py file contents. However, from the comments in the code, I can infer that these correspond to 303, 302, and 301 respectively.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.143,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:370",
+        "src/requests/models.py:884",
+        "src/requests/sessions.py:134",
+        "src/requests/utils.py:1139",
+        "src/requests/sessions.py:154",
+        "src/requests/auth.py:268",
+        "src/requests/sessions.py:370-392",
+        "src/requests/models.py:96",
+        "src/requests/models.py:97",
+        "src/requests/models.py:887",
+        "src/requests/sessions.py:379",
+        "src/requests/sessions.py:384",
+        "src/requests/sessions.py:389",
+        "src/requests/status_codes.py:23"
+      ],
+      "expected": [
+        "src/requests/sessions.py:370"
+      ],
+      "tokens": 19572,
+      "llm_calls": 8,
+      "seconds": 13.8,
+      "error": ""
+    },
+    {
+      "question_id": "req-m03",
+      "system": "baseline",
+      "category": "multi_hop",
+      "answer": "The method that picks the transport adapter for a URL is `Session.get_adapter` (implicit from the context of adapter selection in `src/requests/sessions.py:871-910`, though the method definition is not shown). It selects an adapter by matching the URL against prefixes in `self.adapters` (line 875-877).\n\nAdapters get registered using the `Session.mount` method, which takes a prefix and an adapter instance and stores them in `self.adapters` (lines 887-897). The adapters are sorted by prefix length in descending order during registration (line 890).",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:871-910",
+        "src/requests/adapters.py:1-40",
+        "src/requests/adapters.py:451-490",
+        "src/requests/adapters.py:151-190",
+        "src/requests/adapters.py:601-640",
+        "src/requests/packages.py:1-23",
+        "src/requests/adapters.py:511-550",
+        "src/requests/models.py:481-520"
+      ],
+      "expected": [
+        "src/requests/sessions.py:870",
+        "src/requests/sessions.py:888"
+      ],
+      "tokens": 3109,
+      "llm_calls": 2,
+      "seconds": 4.0,
+      "error": ""
+    },
+    {
+      "question_id": "req-m03",
+      "system": "single_hop",
+      "category": "multi_hop",
+      "answer": "The graph contains no match for methods named `get_adapter` or `mount` defined within a class named `Session`. This suggests that either these methods are not defined in the codebase under the specified conditions, or they might be named differently or located outside the scope of this query (e.g., in a different class or module).\n\nYou might want to ask about the general mechanism for picking transport adapters and registering them in the codebase, or check if these methods exist with different names or in other classes.",
+      "verdict": "wrong",
+      "grade_reason": "The answer incorrectly states that no methods named `get_adapter` or `mount` exist in a class named `Session`, when in fact these methods do exist in the requests library's Session class as described in the reference answer. The answer fails to address the actual question about how transport adapters are picked and registered, instead claiming the methods don't exist.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/sessions.py:870",
+        "src/requests/sessions.py:888"
+      ],
+      "tokens": 2677,
+      "llm_calls": 3,
+      "seconds": 5.5,
+      "error": ""
+    },
+    {
+      "question_id": "req-m03",
+      "system": "multi_hop",
+      "category": "multi_hop",
+      "answer": "Based on my investigation, I can now answer your question about how transport adapters are picked for URLs and how they get registered.\n\n## How Adapters Get Registered\n\nAdapters are registered using the `mount` method of the `Session` class (`src/requests/sessions.py:888`):\n\n```python\ndef mount(self, prefix: str, adapter: BaseAdapter) -> None:\n    \"\"\"Registers a connection adapter to a prefix.\n\n    Adapters are sorted in descending order by prefix length.\n    \"\"\"\n    self.adapters[prefix] = adapter\n    keys_to_move = [k for k in self.adapters if len(k) < len(prefix)]\n\n    for key in keys_to_move:\n        self.adapters[key] = self.adapters.pop(key)\n```\n\nDuring session initialization, two default adapters are automatically registered (`src/requests/sessions.py:502-503`):\n- An `HTTPAdapter` for \"https://\" URLs\n- An `HTTPAdapter` for \"http://\" URLs\n\n## How the Transport Adapter is Picked for a URL\n\nThe method that picks the transport adapter for a URL is `get_adapter` in the `Session` class (`src/requests/sessions.py:870`):\n\n```python\ndef get_adapter(self, url: str) -> BaseAdapter:\n    \"\"\"\n    Returns the appropriate connection adapter for the given URL.\n\n    :rtype: requests.adapters.BaseAdapter\n    \"\"\"\n    for prefix, adapter in self.adapters.items():\n        if url.lower().startswith(prefix.lower()):\n            return adapter\n\n    # Nothing matches :-/\n    raise InvalidSchema(f\"No connection adapters were found for {url!r}\")\n```\n\nThis method iterates through the registered adapters and returns the first one whose prefix matches the beginning of the URL (case-insensitive). If no adapter matches, it raises an `InvalidSchema` exception.\n\nThe selection process is straightforward - it checks each registered prefix to see if the URL starts with that prefix, and returns the corresponding adapter. The adapters are maintained in an `OrderedDict` and are sorted by prefix length (longest first) when mounted, ensuring more specific prefixes are checked before less specific ones.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.444,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/adapters.py:122",
+        "src/requests/adapters.py:158",
+        "src/requests/sessions.py:870",
+        "src/requests/adapters.py:565",
+        "src/requests/adapters.py:512",
+        "src/requests/sessions.py:888",
+        "src/requests/sessions.py:870-881",
+        "src/requests/sessions.py:888-897",
+        "src/requests/sessions.py:442-503"
+      ],
+      "expected": [
+        "src/requests/sessions.py:870",
+        "src/requests/sessions.py:888"
+      ],
+      "tokens": 14955,
+      "llm_calls": 6,
+      "seconds": 17.2,
+      "error": ""
+    },
+    {
+      "question_id": "req-m04",
+      "system": "baseline",
+      "category": "multi_hop",
+      "answer": "A redirect response gets turned into the next request URL through the following process:\n\n1. The `resolve_redirects` method in `SessionRedirectMixin` retrieves the redirect target URL from the response using `get_redirect_target()` (src/requests/sessions.py:197).\n\n2. `get_redirect_target()` checks if the response is a redirect by verifying that it has a \"location\" header and its status code is in the `REDIRECT_STATI` tuple (codes 301, 302, 303, 307, 308) (src/requests/sessions.py:141-149, src/requests/models.py:97-103).\n\n3. If it's a redirect, `get_redirect_target()` extracts the location header, handles potential UTF-8 encoding issues by re-encoding from latin1, and returns the redirect URI (src/requests/sessions.py:141-153).\n\n4. Back in `resolve_redirects()`, the method creates a copy of the original request and updates its URL with the redirect target after normalizing and resolving it (src/requests/sessions.py:228-247). \n\n5. Specifically:\n   - Handles scheme-relative URLs (starting with \"//\") by prepending the original scheme (src/requests/sessions.py:228-231)\n   - Normalizes the URL and preserves fragments according to RFC 7231 (src/requests/sessions.py:233-239)  \n   - Resolves relative paths using `urljoin()` with the original URL as base (src/requests/sessions.py:244-247)\n   - Percent-encodes the final URL (src/requests/sessions.py:247)\n\nThis results in a new `PreparedRequest` with the updated redirect URL that can be sent as the next request in the redirect chain.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes the process of how a redirect response gets turned into the next request URL, matching the reference answer's substance. It correctly identifies the key methods involved (get_redirect_target and resolve_redirects), explains the flow of extracting the Location header, handling encoding issues, resolving relative URLs, and creating the next request. All factual claims are accurate and it fully addresses the question.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.375,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/models.py:871-910",
+        "src/requests/sessions.py:121-160",
+        "src/requests/models.py:91-130",
+        "src/requests/models.py:781-820",
+        "src/requests/sessions.py:181-220",
+        "src/requests/utils.py:1141-1155",
+        "src/requests/sessions.py:211-250",
+        "src/requests/sessions.py:151-190"
+      ],
+      "expected": [
+        "src/requests/sessions.py:134",
+        "src/requests/sessions.py:186"
+      ],
+      "tokens": 3743,
+      "llm_calls": 2,
+      "seconds": 2.7,
+      "error": ""
+    },
+    {
+      "question_id": "req-m04",
+      "system": "single_hop",
+      "category": "multi_hop",
+      "answer": "The graph contains no match for methods related to redirect responses being turned into URLs. The query found no methods containing \"redirect\" that call methods containing \"url\".\n\nYou might ask instead:\n- What methods handle redirect responses?\n- How are URLs constructed from responses?\n- What functions process HTTP redirects?",
+      "verdict": "wrong",
+      "grade_reason": "The answer fails to address how a redirect response gets turned into the next request URL. Instead of explaining the actual mechanism (reading Location headers, resolving relative URLs, etc. as described in the reference answer), it claims there's no information available and suggests alternative questions. This is unresponsive to the specific question asked, which has a concrete technical answer.",
+      "missing_mentions": [
+        "get_redirect_target",
+        "resolve_redirects"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/sessions.py:134",
+        "src/requests/sessions.py:186"
+      ],
+      "tokens": 2443,
       "llm_calls": 3,
       "seconds": 2.0,
+      "error": ""
+    },
+    {
+      "question_id": "req-m04",
+      "system": "multi_hop",
+      "category": "multi_hop",
+      "answer": "Based on the code analysis, here's how a redirect response gets turned into the next request URL in the requests library:\n\n1. **Getting the redirect target**: The process starts with `get_redirect_target()` method which extracts the redirect URL from the response's \"location\" header. If the response has a redirect status code, it retrieves the location header value, handles potential encoding issues (converting from latin1 to utf8), and returns the redirect URI.\n\n2. **Processing the redirect URL**: In `resolve_redirects()`, the redirect URL undergoes several transformations:\n   - Handles scheme-less redirects (starting with \"//\") by prepending the original scheme\n   - Normalizes the URL and manages fragments according to RFC 7231\n   - Processes relative URLs using `urljoin()` with the original request URL\n   - Re-encodes the URL properly using `requote_uri()` to ensure consistent quoting\n\n3. **Creating the new request**: A new `PreparedRequest` is created as a copy of the original request, but with:\n   - The processed redirect URL set as the new target\n   - Updated method (handled by `rebuild_method()`)\n   - Cleaned headers and body for certain redirect types\n   - Updated cookies extracted from the response\n\n4. **Loop continuation**: The method continues the redirect loop by calling `self.get_redirect_target(resp)` again to check if the new response is also a redirect, continuing until there are no more redirects.\n\nThe key transformation happens in lines 224-245 of `resolve_redirects()` where the raw location header value is processed into a proper URL for the next request, handling edge cases like relative paths, missing schemes, and proper URL encoding.\n\n`src/requests/sessions.py:134` and `src/requests/sessions.py:186` show the core implementation, though the exact completion of the loop at line 305+ was not visible in the provided code segments.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.444,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:134",
+        "src/requests/models.py:892",
+        "src/requests/sessions.py:186",
+        "src/requests/models.py:884",
+        "src/requests/models.py:483",
+        "src/requests/utils.py:704",
+        "src/requests/sessions.py:134-152",
+        "src/requests/sessions.py:186-305",
+        "src/requests/sessions.py:305"
+      ],
+      "expected": [
+        "src/requests/sessions.py:134",
+        "src/requests/sessions.py:186"
+      ],
+      "tokens": 29908,
+      "llm_calls": 8,
+      "seconds": 11.7,
+      "error": ""
+    },
+    {
+      "question_id": "req-m05",
+      "system": "baseline",
+      "category": "multi_hop",
+      "answer": "The function that builds the Basic auth header value is `_basic_auth_str` in `src/requests/auth.py`. It uses the helper function `to_native_string` from `src/requests/_internal_utils.py` to turn the encoded credentials into a string (specifically, to convert the base64-encoded byte string into a native string).\n\n`src/requests/auth.py:31-70` shows the start of `_basic_auth_str`, and `src/requests/auth.py:61-100` shows the specific line where `to_native_string` is used:\n\n```python\nauthstr = \"Basic \" + to_native_string(\n    b64encode(b\":\".join((username, password))).strip()\n)\n```\n\n`src/requests/_internal_utils.py:1-40` defines `to_native_string`.",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies `_basic_auth_str` in `src/requests/auth.py` as the function that builds the Basic auth header value, and correctly identifies `to_native_string` from `src/requests/_internal_utils.py` as the helper function used to convert the encoded credentials into a string. The answer accurately describes the process of base64-encoding the credentials and using `to_native_string` to convert the byte string to a native string for the final 'Basic ...' header format. The provided code snippets support these claims.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.375,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/auth.py:61-100",
+        "src/requests/auth.py:1-40",
+        "src/requests/auth.py:31-70",
+        "src/requests/models.py:661-700",
+        "src/requests/_internal_utils.py:1-40",
+        "src/requests/utils.py:1081-1120",
+        "src/requests/auth.py:211-250",
+        "src/requests/utils.py:1051-1090"
+      ],
+      "expected": [
+        "src/requests/auth.py:34",
+        "src/requests/auth.py:71"
+      ],
+      "tokens": 3449,
+      "llm_calls": 2,
+      "seconds": 2.7,
+      "error": ""
+    },
+    {
+      "question_id": "req-m05",
+      "system": "single_hop",
+      "category": "multi_hop",
+      "answer": "The graph contains no match for a function named `build_basic_auth_header`. You might ask instead about other authentication-related functions or helpers in the codebase, or check if the function name is spelled correctly.",
+      "verdict": "wrong",
+      "grade_reason": "The answer fails to identify the correct function (_basic_auth_str) that builds the Basic auth header value and incorrectly states there's no match for a function with a similar name, when the actual function exists in the codebase as described in the reference answer.",
+      "missing_mentions": [
+        "_basic_auth_str",
+        "to_native_string"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/auth.py:34",
+        "src/requests/auth.py:71"
+      ],
+      "tokens": 2405,
+      "llm_calls": 3,
+      "seconds": 9.7,
+      "error": ""
+    },
+    {
+      "question_id": "req-m05",
+      "system": "multi_hop",
+      "category": "multi_hop",
+      "answer": "Based on my analysis of the code:\n\nThe function that builds the Basic auth header value is `requests.auth._basic_auth_str` located at `src/requests/auth.py:34`. \n\nThis function takes username and password parameters, encodes them, joins them with a colon, base64-encodes the result, and then uses the helper function `to_native_string` from `requests._internal_utils` to convert the encoded credentials into a string.\n\nThe helper function used to turn the encoded credentials into a string is `requests._internal_utils.to_native_string`, located at `src/requests/_internal_utils.py:26`. This function takes care of decoding bytes to a string representation using the specified encoding (defaulting to ASCII).",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies _basic_auth_str in requests.auth as the function that builds the Basic auth header value and to_native_string from requests._internal_utils as the helper function used to convert the encoded credentials into a string. The answer accurately describes the process of base64 encoding the username:password combination and using to_native_string to produce the final string, matching the reference answer's substance.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.25,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/auth.py:210",
+        "src/requests/auth.py:34",
+        "src/requests/auth.py:176",
+        "src/requests/auth.py:192",
+        "src/requests/auth.py:184",
+        "src/requests/auth.py:200",
+        "src/requests/auth.py:34-75",
+        "src/requests/_internal_utils.py:26-36"
+      ],
+      "expected": [
+        "src/requests/auth.py:34",
+        "src/requests/auth.py:71"
+      ],
+      "tokens": 10885,
+      "llm_calls": 5,
+      "seconds": 9.5,
+      "error": ""
+    },
+    {
+      "question_id": "req-m06",
+      "system": "baseline",
+      "category": "multi_hop",
+      "answer": "The `prepare_method` method sets the request method in `PreparedRequest`. It converts the method to uppercase.\n\nSource: `src/requests/sessions.py:531` shows `method=method.upper()` being passed to `p.prepare()`, indicating that the method is converted to uppercase during preparation. While the exact `prepare_method` function isn't shown in the excerpts, its behavior is implied by this usage pattern in the session preparation logic.",
+      "verdict": "partial",
+      "grade_reason": "The answer correctly identifies that prepare_method sets the request method and converts it to uppercase. However, it omits the important detail about converting the value to a native string with to_native_string when it is not None, which is mentioned in the reference answer. The answer is also misleading about the source location - it references sessions.py line 531 instead of showing the actual prepare_method implementation.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/adapters.py:601-640",
+        "src/requests/models.py:721-760",
+        "src/requests/models.py:361-400",
+        "src/requests/sessions.py:511-550",
+        "src/requests/api.py:1-40",
+        "src/requests/models.py:271-310",
+        "src/requests/adapters.py:451-490",
+        "src/requests/models.py:391-430"
+      ],
+      "expected": [
+        "src/requests/models.py:467"
+      ],
+      "tokens": 3306,
+      "llm_calls": 2,
+      "seconds": 1.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-m06",
+      "system": "single_hop",
+      "category": "multi_hop",
+      "answer": "The `prepare_method` method sets the request method. It prepares the given HTTP method.\n\nSource: `src/requests/models.py:467`",
+      "verdict": "partial",
+      "grade_reason": "The answer correctly identifies that `prepare_method` is the method that sets the request method, which matches the reference answer. However, it omits the specific details about what the method does to the value (upper-casing it and converting it to a native string with to_native_string when it is not None), which are key parts of the reference answer. The answer is incomplete but not incorrect.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/models.py:467",
+        "src/requests/models.py:483",
+        "src/requests/models.py:565",
+        "src/requests/models.py:576",
+        "src/requests/models.py:654",
+        "src/requests/models.py:670",
+        "src/requests/models.py:699",
+        "src/requests/models.py:722"
+      ],
+      "expected": [
+        "src/requests/models.py:467"
+      ],
+      "tokens": 2715,
+      "llm_calls": 3,
+      "seconds": 11.5,
+      "error": ""
+    },
+    {
+      "question_id": "req-m06",
+      "system": "multi_hop",
+      "category": "multi_hop",
+      "answer": "The `prepare_method` method in the `PreparedRequest` class sets the request method. It takes a method parameter which can be a string or None.\n\nWhat it does to the value:\n1. It assigns the method parameter directly to `self.method` (line 469)\n2. If the method is not None, it converts the method to uppercase using `self.method.upper()` and then applies `to_native_string()` to it (line 471)\n\nThis ensures that HTTP methods are always stored in uppercase, which is the standard format for HTTP methods as per HTTP specifications.\n\nThe method is defined in `src/requests/models.py:467`.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes what PreparedRequest.prepare_method does - it sets the request method and upper-cases the value when it's not None. The answer correctly identifies that it uses to_native_string for conversion and explains the purpose of ensuring HTTP methods are in standard uppercase format. The provided file location is also accurate.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.222,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/models.py:670",
+        "src/requests/models.py:576",
+        "src/requests/models.py:654",
+        "src/requests/models.py:699",
+        "src/requests/models.py:565",
+        "src/requests/models.py:722",
+        "src/requests/models.py:467",
+        "src/requests/models.py:483",
+        "src/requests/models.py:467-471"
+      ],
+      "expected": [
+        "src/requests/models.py:467"
+      ],
+      "tokens": 6974,
+      "llm_calls": 4,
+      "seconds": 10.3,
+      "error": ""
+    },
+    {
+      "question_id": "req-c01",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "SSL certificate verification is handled in the `cert_verify` method of the `HTTPAdapter` class, located in `src/requests/adapters.py:301-340`. This method configures the urllib3 connection object to require certificate verification and sets the appropriate certificate bundle path (`conn.ca_certs` or `conn.ca_cert_dir`) based on the `verify` parameter. The default CA bundle path is provided by `certs.where()` from the `certifi` package (`src/requests/certs.py:1-18`).",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/adapters.py:301-340",
+        "src/requests/certs.py:1-18",
+        "src/requests/adapters.py:451-490",
+        "src/requests/sessions.py:601-640",
+        "src/requests/adapters.py:421-460",
+        "src/requests/adapters.py:331-370",
+        "src/requests/utils.py:61-100",
+        "src/requests/sessions.py:421-460"
+      ],
+      "expected": [
+        "src/requests/adapters.py:307"
+      ],
+      "tokens": 3066,
+      "llm_calls": 2,
+      "seconds": 1.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-c01",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "SSL certificate verification is handled in the `cert_verify` method of the `HTTPAdapter` class, located in `src/requests/adapters.py` at line 307. This method is responsible for managing certificate verification during HTTP requests. Additional SSL-related functionality is present in the `adapters.py` file, including methods like `build_connection_pool_key_attributes` and `get_connection_with_tls_context`. The `sessions.py` file also plays a role through the `Session.request` method which coordinates the overall request process. Import statements for SSL modules can be found in `src/requests/__init__.py` and `src/requests/help.py`.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.083,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/exceptions.py:78",
+        "src/requests/api.py:24",
+        "src/requests/help.py:5",
+        "src/requests/help.py:25",
+        "src/requests/__init__.py:131",
+        "src/requests/__init__.py:136",
+        "src/requests/adapters.py:128",
+        "src/requests/adapters.py:307",
+        "src/requests/adapters.py:403",
+        "src/requests/adapters.py:455",
+        "src/requests/sessions.py:557",
+        "src/requests/adapters.py:634"
+      ],
+      "expected": [
+        "src/requests/adapters.py:307"
+      ],
+      "tokens": 2889,
+      "llm_calls": 3,
+      "seconds": 4.3,
+      "error": ""
+    },
+    {
+      "question_id": "req-c01",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on my analysis of the codebase, SSL certificate verification is handled in the `requests` library primarily through the `HTTPAdapter.cert_verify` method in `src/requests/adapters.py`.\n\nHere's how it works:\n\n1. **Main Implementation**: The `cert_verify` method in `HTTPAdapter` (lines 307-363 in `src/requests/adapters.py`) is responsible for handling SSL certificate verification. This method:\n   - Checks if the URL starts with \"https\" and if verification is enabled\n   - Sets the appropriate certificate requirements (`CERT_REQUIRED` or `CERT_NONE`) on the connection\n   - Handles custom certificate paths when provided\n   - Manages client certificates when specified\n\n2. **Usage Flow**: \n   - The `cert_verify` method is called from `HTTPAdapter.send` (line 668 in `src/requests/adapters.py`)\n   - This happens after obtaining a connection with TLS context via `get_connection_with_tls_context`\n   - The verification settings (controlled by the `verify` parameter) are passed through the entire request flow\n\n3. **Error Handling**: SSL-related errors are caught and converted to `SSLError` exceptions in the `send` method (lines 725-740 in `src/requests/adapters.py`), which uses the `requests.exceptions.SSLError` class defined in `src/requests/exceptions.py`.\n\nThe system allows users to control certificate verification through the `verify` parameter which can be either a boolean (to enable/disable verification) or a string path to a custom CA bundle. When verification is disabled or fails, appropriate security warnings or exceptions are raised.",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.25,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/adapters.py:307",
+        "src/requests/exceptions.py:78",
+        "src/requests/adapters.py:403",
+        "src/requests/adapters.py:455",
+        "src/requests/__init__.py:99",
+        "src/requests/adapters.py:634",
+        "src/requests/adapters.py:307-363",
+        "src/requests/adapters.py:634-748"
+      ],
+      "expected": [
+        "src/requests/adapters.py:307"
+      ],
+      "tokens": 13654,
+      "llm_calls": 5,
+      "seconds": 10.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-c02",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "When converting a value that might be bytes into a string, requests uses different approaches depending on the context:\n\n1. For URLs, if the input is bytes, it is decoded using UTF-8 (`src/requests/models.py:481-520`):\n   ```python\n   if isinstance(url, bytes):\n       url = url.decode(\"utf8\")\n   ```\n\n2. For response content, when accessed as `.text`, it tries to use the detected or specified encoding, falling back to 'utf-8' with 'replace' error handling if needed (`src/requests/models.py:1051-1090`):\n   ```python\n   content = str(self.content, encoding or \"utf-8\", errors=\"replace\")\n   ```\n\n3. In streaming responses, when `decode_unicode=True`, incremental decoding is performed using the response's encoding, again with 'replace' error handling (`src/requests/utils.py:571-610` and `src/requests/models.py:901-940`).\n\nTherefore, the assumed encoding is primarily based on HTTP headers or auto-detection, but falls back to UTF-8 when necessary. Error handling during decoding typically uses the 'replace' strategy.",
+      "verdict": "partial",
+      "grade_reason": "The answer provides specific examples of how requests handles bytes-to-string conversion in different contexts (URLs, response content, streaming), but it misses the core utility function mentioned in the reference answer. While the information about UTF-8 encoding and error handling is accurate, it doesn't directly address the `to_native_string` function in `_internal_utils.py` which is the primary mechanism referenced. The answer is partially correct but incomplete regarding the main conversion utility.",
+      "missing_mentions": [
+        "to_native_string",
+        "ascii"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/utils.py:571-610",
+        "src/requests/models.py:1051-1090",
+        "src/requests/models.py:121-160",
+        "src/requests/models.py:901-940",
+        "src/requests/models.py:481-520",
+        "src/requests/utils.py:661-700",
+        "src/requests/models.py:931-970",
+        "src/requests/models.py:991-1030"
+      ],
+      "expected": [
+        "src/requests/_internal_utils.py:26"
+      ],
+      "tokens": 3403,
+      "llm_calls": 2,
+      "seconds": 5.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-c02",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "Based on the results, we can see some encoding and decoding operations, but they don't directly show how requests converts bytes to strings or what encoding it assumes for this conversion.\n\nThe most relevant result is:\n- `requests.models.Response.iter_content` calls `requests.utils.stream_decode_response_unicode` (line 914 in src/requests/models.py)\n\nThis suggests that `stream_decode_response_unicode` might be involved in converting bytes to strings, but the actual implementation details and assumed encoding are not visible in the provided results.\n\nTo properly answer your question about how requests converts bytes to strings and what encoding it assumes, I would need to see the implementation of functions like `stream_decode_response_unicode` or other utility functions in `requests.utils`. The current results only show where such functions are called from, not their implementation.\n\nThe graph contains no direct match showing the specific implementation you're asking about. You might want to ask about the implementation of `stream_decode_response_unicode` or look for utility functions in `requests.utils` that handle byte-to-string conversion.",
+      "verdict": "wrong",
+      "grade_reason": "The answer fails to identify the correct function (to_native_string in _internal_utils.py) and instead focuses on an unrelated function (stream_decode_response_unicode) that is not the primary utility for converting bytes to strings with a default encoding assumption. The answer essentially says it cannot find the information while hedging, but it does make some claims about what it found that are incorrect or irrelevant. It does not state the substance of the reference answer.",
+      "missing_mentions": [
+        "to_native_string",
+        "ascii"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/models.py:483",
+        "src/requests/models.py:576",
+        "src/requests/models.py:914"
+      ],
+      "expected": [
+        "src/requests/_internal_utils.py:26"
+      ],
+      "tokens": 2935,
+      "llm_calls": 3,
+      "seconds": 3.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-c02",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on my investigation, here's how requests converts values that might be bytes into strings and what encoding it assumes:\n\n## Primary Conversion Function\n\nThe main function for converting bytes to strings is `requests._internal_utils.to_native_string()`:\n\n```python\ndef to_native_string(string: str | bytes, encoding: str = \"ascii\") -> str:\n    \"\"\"Given a string object, regardless of type, returns a representation of\n    that string in the native string type, encoding and decoding where\n    necessary. This assumes ASCII unless told otherwise.\n    \"\"\"\n    if isinstance(string, builtin_str):\n        out = string\n    else:\n        out = string.decode(encoding)\n\n    return out\n```\n\n(src/requests/_internal_utils.py:26)\n\n## Key Points:\n\n1. **Default Encoding**: The function assumes **ASCII** encoding by default (as stated in the docstring and parameter default)\n2. **Usage**: This function is used throughout the requests library for various conversions, including preparing request methods, URLs, headers, and handling redirects\n3. **Flexibility**: The encoding can be overridden by passing a different encoding parameter\n\n## For Response Content:\n\nFor HTTP response content, requests uses a more sophisticated approach in `get_unicode_from_response()` which:\n1. First tries to get encoding from HTTP headers (`get_encoding_from_headers()`)\n2. Falls back to UTF-8 with error replacement if needed\n3. Uses ISO-8859-1 for text content types when no charset is specified\n4. Uses UTF-8 for JSON content types when no charset is specified\n\nThe encoding detection follows web standards:\n- Headers charset parameter takes precedence\n- Text content defaults to ISO-8859-1 \n- JSON content defaults to UTF-8\n- Final fallback is UTF-8 with error replacement\n\nIn summary, requests primarily assumes **ASCII** encoding for internal string conversions through `to_native_string()`, but uses more context-aware encoding detection for actual HTTP response content.",
+      "verdict": "correct",
+      "grade_reason": "The answer is factually correct and responsive to the question. It accurately describes how requests converts bytes to strings using `to_native_string()` and correctly identifies that ASCII is the default encoding assumption. The additional information about response content encoding, while not strictly required by the question, is accurate and provides useful context without detracting from the core answer.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.222,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/_internal_utils.py:26",
+        "src/requests/utils.py:522",
+        "src/requests/utils.py:569",
+        "src/requests/utils.py:594",
+        "src/requests/models.py:897",
+        "src/requests/utils.py:633",
+        "src/requests/_internal_utils.py:26-36",
+        "src/requests/utils.py:569-591",
+        "src/requests/utils.py:633-671"
+      ],
+      "expected": [
+        "src/requests/_internal_utils.py:26"
+      ],
+      "tokens": 14582,
+      "llm_calls": 6,
+      "seconds": 11.8,
+      "error": ""
+    },
+    {
+      "question_id": "req-c03",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "The requests library checks whether a string contains only ASCII characters using the `unicode_is_ascii` function in `src/requests/_internal_utils.py`. This function attempts to encode the unicode string using ASCII encoding. If the encoding succeeds, the function returns `True`; otherwise, a `UnicodeEncodeError` is caught, and the function returns `False` (src/requests/_internal_utils.py:31-51).",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes how requests checks for ASCII characters using the unicode_is_ascii function, correctly explaining that it attempts ASCII encoding and returns True on success or False when UnicodeEncodeError is raised. The substance matches the reference answer exactly.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/_internal_utils.py:31-51",
+        "src/requests/models.py:1051-1090",
+        "src/requests/utils.py:661-700",
+        "src/requests/utils.py:571-610",
+        "src/requests/utils.py:631-670",
+        "src/requests/models.py:901-940",
+        "src/requests/models.py:1141-1180",
+        "src/requests/models.py:1111-1150"
+      ],
+      "expected": [
+        "src/requests/_internal_utils.py:39"
+      ],
+      "tokens": 2881,
+      "llm_calls": 2,
+      "seconds": 2.0,
+      "error": ""
+    },
+    {
+      "question_id": "req-c03",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "The graph contains no match for functions or methods in the requests library that call `isascii`. This suggests that requests does not use the `isascii` method to check whether a string contains only ASCII characters.\n\nYou might want to ask how requests handles ASCII validation or encoding checks in its codebase, or look for alternative methods like manual byte checking or using `encode('ascii')` with exception handling.",
+      "verdict": "correct",
+      "grade_reason": "The answer is factually correct and responsive to the question. It accurately states that requests does not use the `isascii` method (which is true), and suggests looking for alternative methods like `encode('ascii')` with exception handling, which aligns with the reference answer's explanation of how requests actually does this check. While it doesn't explicitly mention the `unicode_is_ascii` function name, it correctly identifies the approach used (encode with exception handling) and directly answers the question about how requests checks for ASCII characters.",
+      "missing_mentions": [
+        "unicode_is_ascii"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/_internal_utils.py:39"
+      ],
+      "tokens": 2470,
+      "llm_calls": 3,
+      "seconds": 9.8,
+      "error": ""
+    },
+    {
+      "question_id": "req-c03",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on my investigation, I can now explain how the requests library checks whether a string contains only ASCII characters.\n\nThe requests library uses a utility function called `unicode_is_ascii` in `src/requests/_internal_utils.py` to check if a string contains only ASCII characters:\n\n```python\ndef unicode_is_ascii(u_string: str) -> bool:\n    \"\"\"Determine if unicode string only contains ASCII characters.\"\"\"\n    assert isinstance(u_string, str)\n    try:\n        u_string.encode(\"ascii\")\n        return True\n    except UnicodeEncodeError:\n        return False\n```\n\nAs shown in `src/requests/_internal_utils.py:39-51`, the approach is straightforward:\n1. It takes a string as input and verifies it's actually a string type\n2. It attempts to encode the string using ASCII encoding\n3. If the encoding succeeds without raising a `UnicodeEncodeError`, the function returns `True`, indicating the string contains only ASCII characters\n4. If a `UnicodeEncodeError` is raised (which happens when the string contains non-ASCII characters), the function catches the exception and returns `False`\n\nThis function is used in `requests.models.PreparedRequest.prepare_url` method (as seen in `src/requests/models.py:528`) to check if a URL's host component contains only ASCII characters. If the host contains non-ASCII characters, requests attempts to encode it using IDNA (Internationalized Domain Names in Applications) encoding. If it's ASCII but starts with a wildcard character, it raises an `InvalidURL` exception.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes how requests checks for ASCII characters using the unicode_is_ascii function, correctly explaining the encoding approach and exception handling. It also correctly identifies where this function is used in the codebase (PreparedRequest.prepare_url). The explanation matches the reference answer's substance exactly.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.222,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/_internal_utils.py:39",
+        "src/requests/compat.py:36",
+        "src/requests/_internal_utils.py:26",
+        "src/requests/__init__.py:60",
+        "src/requests/utils.py:633",
+        "src/requests/utils.py:752",
+        "src/requests/_internal_utils.py:39-51",
+        "src/requests/models.py:483",
+        "src/requests/models.py:483-563"
+      ],
+      "expected": [
+        "src/requests/_internal_utils.py:39"
+      ],
+      "tokens": 14391,
+      "llm_calls": 6,
+      "seconds": 40.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-c04",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "The data structure that requests uses for HTTP header lookups to ignore case is `CaseInsensitiveDict`, which is defined in `src/requests/structures.py`.\n\nAccording to the documentation in `src/requests/models.py:775-777`, the `headers` attribute of a Response object is a case-insensitive dictionary:\n```\n#: Case-insensitive Dictionary of Response Headers.\n#: For example, ``headers['content-encoding']`` will return the\n#: value of a ``'Content-Encoding'`` response header.\n```\n\nIn `src/requests/structures.py:31-70`, the `CaseInsensitiveDict` class is described:\n- It stores keys in a way that makes lookups case-insensitive\n- When setting items, it uses the lowercased key for lookups but stores the actual key alongside the value (`self._store[key.lower()] = (key, value)`)\n- When getting items, it uses the lowercased key to retrieve the value (`return self._store[key.lower()][1]`)\n\nRegarding equality comparison, the documentation in `src/requests/structures.py:31-70` states:\n```\nIf the constructor, ``.update``, or equality comparison\noperations are given keys that have equal ``.lower()``s, the\nbehavior is undefined.\n```\n\nThis indicates that when comparing two `CaseInsensitiveDict` objects for equality, if there are keys that have the same lowercase version, the behavior is undefined. The implementation details of the equality comparison itself are not shown in the provided excerpts.",
+      "verdict": "wrong",
+      "grade_reason": "The answer is wrong because it misrepresents how CaseInsensitiveDict handles equality comparison. While it correctly identifies the data structure and its location, and accurately describes how case-insensitive lookups work, it incorrectly states that the behavior is 'undefined' when comparing keys with equal lowercases. The reference answer clearly states that __eq__ compares two mappings by their lower-cased items, so case differences do not affect equality - this is the opposite of 'undefined behavior'. The answer also incorrectly claims that 'the implementation details of the equality comparison itself are not shown' when the reference answer provides exactly those details.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/status_codes.py:1-40",
+        "src/requests/models.py:751-790",
+        "src/requests/adapters.py:601-640",
+        "src/requests/__init__.py:1-40",
+        "src/requests/structures.py:31-70",
+        "src/requests/models.py:661-700",
+        "src/requests/models.py:781-820",
+        "src/requests/cookies.py:91-130"
+      ],
+      "expected": [
+        "src/requests/structures.py:20",
+        "src/requests/structures.py:80"
+      ],
+      "tokens": 3780,
+      "llm_calls": 2,
+      "seconds": 5.8,
+      "error": ""
+    },
+    {
+      "question_id": "req-c04",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "",
+      "verdict": "wrong",
+      "grade_reason": "AttributeError: 'float' object has no attribute 'get'",
+      "missing_mentions": [
+        "CaseInsensitiveDict"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/structures.py:20",
+        "src/requests/structures.py:80"
+      ],
+      "tokens": 0,
+      "llm_calls": 0,
+      "seconds": 10.9,
+      "error": "AttributeError: 'float' object has no attribute 'get'"
+    },
+    {
+      "question_id": "req-c04",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on my analysis of the requests library code, I can now answer your question:\n\nThe requests library uses `CaseInsensitiveDict` as the data structure for HTTP headers to enable case-insensitive lookups. This is defined in `src/requests/structures.py:20`.\n\nHere's how it works:\n\n1. **Data Structure**: The `CaseInsensitiveDict` stores data in an `_store` attribute which is an `OrderedDict`. The structure maps lowercase keys to tuples containing the original case-sensitive key and the value (`_store: OrderedDict[str, tuple[str, _VT]]`).\n\n2. **Case-Insensitive Lookups**: When accessing items (via `__getitem__`), the key is converted to lowercase using `key.lower()` before looking up in the store (`src/requests/structures.py:65`).\n\n3. **Equality Comparison**: Two `CaseInsensitiveDict` instances are compared for equality by converting both to dictionaries with lowercase keys and then comparing those dictionaries (`src/requests/structures.py:86`). Specifically, the comparison is done as:\n   ```python\n   dict(self.lower_items()) == dict(other_dict.lower_items())\n   ```\n   \n   Where `lower_items()` returns an iterator of tuples with all lowercase keys and their corresponding values (`src/requests/structures.py:76-78`).\n\nThis approach allows HTTP headers to be accessed regardless of their case (so 'Content-Type', 'content-type', and 'CONTENT-TYPE' all refer to the same header) while preserving the original casing when iterating through the headers.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes the CaseInsensitiveDict data structure used by requests for HTTP headers. It correctly identifies that it's located in structures.py, explains the storage mechanism with lowercase keys mapping to (original_key, value) tuples, describes how case-insensitive lookups work via key.lower(), and explains the equality comparison through lower_items(). All substantive points match the reference answer.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.375,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/utils.py:951",
+        "src/requests/utils.py:569",
+        "src/requests/structures.py:92",
+        "src/requests/structures.py:76",
+        "src/requests/structures.py:20",
+        "src/requests/structures.py:70",
+        "src/requests/structures.py:20-93",
+        "src/requests/structures.py:80-86"
+      ],
+      "expected": [
+        "src/requests/structures.py:20",
+        "src/requests/structures.py:80"
+      ],
+      "tokens": 12280,
+      "llm_calls": 5,
+      "seconds": 18.8,
+      "error": ""
+    },
+    {
+      "question_id": "req-c05",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "The default set of hooks for a request is created by the `default_hooks()` function, which returns a dictionary with event names as keys and empty lists as values. Specifically, it contains the `'response'` event with an empty list as its value, as defined by the `HOOKS` list in the same module.\n\n- **Creation**: The `default_hooks()` function generates the default hooks dictionary.\n- **Contents**: The dictionary contains the `'response'` event mapped to an empty list, i.e., `{'response': []}`.\n\nSources:\n- `src/requests/hooks.py:15`\n- `src/requests/hooks.py:18`\n- `src/requests/sessions.py:458`",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes how the default hooks are created via the `default_hooks()` function and correctly identifies the contents as {'response': []}. It mentions the HOOKS list and the mapping of event names to empty lists, which aligns with the reference answer. The additional structural formatting doesn't affect the factual correctness.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/hooks.py:1-40",
+        "src/requests/models.py:271-310",
+        "src/requests/models.py:721-760",
+        "src/requests/models.py:301-340",
+        "src/requests/api.py:1-40",
+        "src/requests/adapters.py:601-640",
+        "src/requests/sessions.py:451-490",
+        "src/requests/sessions.py:121-160"
+      ],
+      "expected": [
+        "src/requests/hooks.py:25"
+      ],
+      "tokens": 3562,
+      "llm_calls": 2,
+      "seconds": 6.3,
+      "error": ""
+    },
+    {
+      "question_id": "req-c05",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "The default set of hooks for a request is created by the `merge_hooks` function, which is called during the `prepare_request` method in `src/requests/sessions.py:108`. The actual content of the default hooks is not shown in the provided results, but the `merge_hooks` function is responsible for combining hooks from different sources (such as session-level and request-level hooks) into a single dictionary that can be used during the request lifecycle.\n\nTo see what the default hooks contain, you would need to inspect the implementation of the `merge_hooks` function in `src/requests/sessions.py`. Typically, this involves merging dictionaries where keys represent hook names (e.g., `'response'`) and values are lists of callback functions. If no hooks are specified, the result will be an empty dictionary or a default structure defined within the `merge_hooks` function.",
+      "verdict": "partial",
+      "grade_reason": "The answer incorrectly identifies `merge_hooks` as the function that creates the default set of hooks, when according to the reference answer, it's `default_hooks` in hooks.py that does this. While the answer mentions `merge_hooks` is involved in combining hooks from different sources, it doesn't correctly explain how the default hooks are initially created. However, it does acknowledge that the default content is not shown and that inspection of `merge_hooks` would be needed to see what it contains, which shows some understanding of the hook system.",
+      "missing_mentions": [
+        "default_hooks"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/sessions.py:76",
+        "src/requests/sessions.py:108",
+        "src/requests/utils.py:231",
+        "src/requests/models.py:424",
+        "src/requests/cookies.py:579",
+        "src/requests/cookies.py:604"
+      ],
+      "expected": [
+        "src/requests/hooks.py:25"
+      ],
+      "tokens": 2828,
+      "llm_calls": 3,
+      "seconds": 4.1,
+      "error": ""
+    },
+    {
+      "question_id": "req-c05",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "The `HOOKS` list in `src/requests/hooks.py` contains a single event named `\"response\"`. \n\nThus, the default set of hooks for a request is created by `default_hooks()` as follows:\n- It initializes a dictionary with the key `\"response\"` and assigns an empty list as its value.\n\nIn summary:\n- The default set of hooks contains one event: `\"response\"`, initialized with an empty list to which hooks can be appended.\n- This default set is utilized in the initialization of `Request`, `PreparedRequest`, and `Session` objects.\n\nFiles involved:\n- `src/requests/hooks.py:25` for `default_hooks()`.\n- `src/requests/hooks.py:22` for the definition of `HOOKS`.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes how the default hooks are created by `default_hooks()` function, correctly identifies that `HOOKS` contains only \"response\", and explains that it returns a dictionary with \"response\" mapped to an empty list. It also correctly mentions the involvement of `HOOKS` list and `default_hooks()` function locations in the codebase.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.444,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/hooks.py:32",
+        "src/requests/models.py:257",
+        "src/requests/models.py:722",
+        "src/requests/hooks.py:25",
+        "src/requests/models.py:272",
+        "src/requests/models.py:323",
+        "src/requests/hooks.py:25-26",
+        "src/requests/hooks.py:22",
+        "src/requests/hooks.py:26"
+      ],
+      "expected": [
+        "src/requests/hooks.py:25"
+      ],
+      "tokens": 13573,
+      "llm_calls": 6,
+      "seconds": 11.2,
+      "error": ""
+    },
+    {
+      "question_id": "req-c06",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "Requests decides how many redirects are too many in `src/requests/sessions.py:211-250`. Specifically, it checks if the length of the response history (`len(resp.history)`) is greater than or equal to `self.max_redirects`. If so, it raises a `TooManyRedirects` exception.\n\nThe default limit for redirects is defined as `DEFAULT_REDIRECT_LIMIT: int = 30` in `src/requests/models.py:91-130`.",
+      "verdict": "correct",
+      "grade_reason": "The answer correctly identifies where requests decides how many redirects are too many (in the redirect resolution logic) and what it raises (TooManyRedirects). It accurately states that the check involves comparing the response history length to self.max_redirects, and mentions the default limit of 30. While it provides file paths and line numbers not in the reference answer, the core factual content matches and is accurate.",
+      "missing_mentions": [],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [
+        "src/requests/models.py:91-130",
+        "src/requests/sessions.py:121-160",
+        "src/requests/models.py:871-910",
+        "src/requests/status_codes.py:31-70",
+        "src/requests/sessions.py:211-250",
+        "src/requests/models.py:781-820",
+        "src/requests/adapters.py:151-190",
+        "src/requests/status_codes.py:61-100"
+      ],
+      "expected": [
+        "src/requests/sessions.py:186",
+        "src/requests/exceptions.py:106"
+      ],
+      "tokens": 3769,
+      "llm_calls": 2,
+      "seconds": 2.0,
+      "error": ""
+    },
+    {
+      "question_id": "req-c06",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "The graph contains no match for where `requests` decides how many redirects are too many or what it raises. \n\nYou might want to ask about specific functions or modules within the `requests` library related to redirect handling, or check if the function name or structure was correctly specified.",
+      "verdict": "wrong",
+      "grade_reason": "The answer states that the graph contains no match for where `requests` decides how many redirects are too many or what it raises. This directly contradicts the reference answer, which clearly identifies that `SessionRedirectMixin.resolve_redirects` is where this logic exists and that it raises `TooManyRedirects`. The answer fails to provide the factual information requested and instead claims the information doesn't exist, when it does according to the reference. Therefore, the answer is wrong.",
+      "missing_mentions": [
+        "TooManyRedirects"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/sessions.py:186",
+        "src/requests/exceptions.py:106"
+      ],
+      "tokens": 2431,
+      "llm_calls": 3,
+      "seconds": 3.1,
+      "error": ""
+    },
+    {
+      "question_id": "req-c06",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on the investigation, I can answer your question about how requests decides how many redirects are too many and what it raises:\n\nIn the requests library, the decision about how many redirects are too many is made in the `resolve_redirects` method in `src/requests/sessions.py`. The specific location is at line 216-219 where it checks:\n\n```python\nif len(resp.history) >= self.max_redirects:\n    raise TooManyRedirects(\n        f\"Exceeded {self.max_redirects} redirects.\", response=resp\n    )\n```\n\nThe default limit for redirects is defined as `DEFAULT_REDIRECT_LIMIT = 30` in `src/requests/models.py:103`. This default is used in sessions when they're initialized (`src/requests/sessions.py:488`).\n\nWhen the number of redirects exceeds this limit, the library raises a `TooManyRedirects` exception, which is defined in `src/requests/exceptions.py:106`.\n\nSo to directly answer your question:\n1. Requests decides how many redirects are too many by comparing `len(resp.history)` with `self.max_redirects`\n2. The default limit is 30 redirects\n3. It raises a `TooManyRedirects` exception when this limit is exceeded",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately identifies the key components of the redirect handling mechanism in the requests library. It correctly points to the `resolve_redirects` method in `sessions.py` as where the redirect count is checked and where `TooManyRedirects` is raised. It also correctly identifies the default limit of 30 redirects and mentions the relevant files and line numbers. All the core facts match the reference answer.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.074,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/exceptions.py:106",
+        "src/requests/models.py:884",
+        "src/requests/auth.py:268",
+        "src/requests/exceptions.py:102",
+        "src/requests/sessions.py:134",
+        "src/requests/sessions.py:370",
+        "src/requests/__init__.py:181",
+        "src/requests/__init__.py:200",
+        "src/requests/sessions.py:34",
+        "src/requests/sessions.py:217",
+        "src/requests/sessions.py:485",
+        "tests/test_requests.py:48",
+        "tests/test_requests.py:254",
+        "tests/test_requests.py:260",
+        "tests/test_requests.py:267",
+        "src/requests/sessions.py:186-305",
+        "src/requests/sessions.py:128",
+        "src/requests/sessions.py:216",
+        "src/requests/sessions.py:218",
+        "src/requests/sessions.py:422",
+        "src/requests/sessions.py:439",
+        "src/requests/sessions.py:488",
+        "tests/test_requests.py:264",
+        "tests/test_requests.py:2612",
+        "src/requests/models.py:103",
+        "src/requests/sessions.py:40",
+        "src/requests/sessions.py:486"
+      ],
+      "expected": [
+        "src/requests/sessions.py:186",
+        "src/requests/exceptions.py:106"
+      ],
+      "tokens": 23030,
+      "llm_calls": 8,
+      "seconds": 8.7,
+      "error": ""
+    },
+    {
+      "question_id": "req-c07",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "When a request is redirected, the `Proxy-Authorization` header is removed from the request headers if it exists, and then potentially re-added based on the new proxy configuration.\n\nSpecifically:\n\n1. The `rebuild_proxies` method removes the existing `Proxy-Authorization` header:\n   ```python\n   if \"Proxy-Authorization\" in headers:\n       del headers[\"Proxy-Authorization\"]\n   ```\n   (`src/requests/sessions.py:351-353`)\n\n2. Then, if the new proxy requires authentication (and it's not a TLS tunneled request), a new `Proxy-Authorization` header is added:\n   ```python\n   if not scheme.startswith(\"https\") and username and password:\n       headers[\"Proxy-Authorization\"] = _basic_auth_str(username, password)\n   ```\n   (`src/requests/sessions.py:363-365`)",
+      "verdict": "correct",
+      "grade_reason": "The answer is factually correct and fully responsive to the question. It accurately describes what happens to the Proxy-Authorization header during redirection: it is unconditionally removed and then potentially re-added based on the new proxy configuration. The answer correctly identifies the key conditions (non-https scheme and presence of credentials) under which the header is re-added, and provides specific code references to support its claims. The substance matches the reference answer completely.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.25,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:331-370",
+        "src/requests/sessions.py:151-190",
+        "src/requests/adapters.py:601-640",
+        "src/requests/sessions.py:121-160",
+        "src/requests/models.py:871-910",
+        "src/requests/sessions.py:361-400",
+        "src/requests/sessions.py:301-340",
+        "src/requests/sessions.py:421-460"
+      ],
+      "expected": [
+        "src/requests/sessions.py:334"
+      ],
+      "tokens": 3559,
+      "llm_calls": 2,
+      "seconds": 2.4,
+      "error": ""
+    },
+    {
+      "question_id": "req-c07",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "The query results show no matches for functions or methods that call a `dumps` function, so I cannot determine from this data what happens to the Proxy-Authorization header during redirects. The graph contains no match for this specific query.\n\nTo properly answer your question about Proxy-Authorization header handling during redirects, you might want to search for code related to redirect handling, header processing, or proxy authentication specifically.",
+      "verdict": "wrong",
+      "grade_reason": "The answer explicitly states it cannot determine what happens to the Proxy-Authorization header during redirects based on the available data, and honestly admits it could not find the information. While it suggests ways to search for the answer, it does not actually answer the question about what happens to the Proxy-Authorization header when a request is redirected. This matches the reference answer's guidance that such an answer should be graded as 'wrong' rather than 'partial'.",
+      "missing_mentions": [
+        "rebuild_proxies"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/sessions.py:334"
+      ],
+      "tokens": 2563,
+      "llm_calls": 3,
+      "seconds": 4.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-c07",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on the code analysis, here's what happens to the `Proxy-Authorization` header when a request is redirected:\n\n1. In the `rebuild_proxies` method of `SessionRedirectMixin`, if the `Proxy-Authorization` header is present in the request headers, it is explicitly deleted:\n   ```python\n   if \"Proxy-Authorization\" in headers:\n       del headers[\"Proxy-Authorization\"]\n   ```\n   This is found in `src/requests/sessions.py:355-356`.\n\n2. The method then tries to extract new proxy authentication credentials from the URL:\n   ```python\n   try:\n       username, password = get_auth_from_url(new_proxies[scheme])\n   except KeyError:\n       username, password = None, None\n   ```\n\n3. If the scheme is not HTTPS and valid credentials are found, a new `Proxy-Authorization` header is created:\n   ```python\n   if not scheme.startswith(\"https\") and username and password:\n       headers[\"Proxy-Authorization\"] = _basic_auth_str(username, password)\n   ```\n\nIn summary, when a request is redirected, the existing `Proxy-Authorization` header is removed, and a new one may be added based on the proxy configuration for the new URL. This behavior prevents leaking proxy credentials to unintended destinations while ensuring proper authentication for the new proxy if needed. The key logic resides in `src/requests/sessions.py` in the `rebuild_proxies` method.",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes the behavior of the Proxy-Authorization header during redirects as implemented in SessionRedirectMixin.rebuild_proxies. It correctly explains that the header is unconditionally deleted and then potentially re-added based on the new URL's proxy credentials and scheme (not added for HTTPS schemes). The answer includes relevant code snippets and file location, and captures the security rationale behind this behavior.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.333,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/sessions.py:154",
+        "src/requests/sessions.py:334",
+        "src/requests/auth.py:116",
+        "src/requests/auth.py:268",
+        "src/requests/sessions.py:309",
+        "src/requests/auth.py:85",
+        "src/requests/sessions.py:309-332",
+        "src/requests/sessions.py:154-184",
+        "src/requests/sessions.py:334-368"
+      ],
+      "expected": [
+        "src/requests/sessions.py:334"
+      ],
+      "tokens": 15285,
+      "llm_calls": 6,
+      "seconds": 5.6,
+      "error": ""
+    },
+    {
+      "question_id": "req-c08",
+      "system": "baseline",
+      "category": "conceptual",
+      "answer": "Requests attaches Basic authentication credentials to an outgoing request by using the `HTTPBasicAuth` class, which implements the `AuthBase` interface. When a request is prepared, the `HTTPBasicAuth.__call__` method is invoked, which encodes the username and password into a Base64-encoded string prefixed with \"Basic \". This string is then added to the request's `Authorization` header.\n\nThe encoding process involves converting the username and password to bytes (if they are strings) using Latin-1 encoding, joining them with a colon, and then Base64-encoding the result. The `_basic_auth_str` function handles this encoding and formatting (`src/requests/auth.py:61-100`, `src/requests/auth.py:1-40`).\n\nFinally, the `HTTPBasicAuth.__call__` method sets the `Authorization` header of the `PreparedRequest` object to this Basic Auth string (`src/requests/auth.py:91-130`). \n\nFor proxy authentication, `HTTPProxyAuth` functions similarly but sets the `Proxy-Authorization` header instead (`src/requests/auth.py:121-160`).",
+      "verdict": "correct",
+      "grade_reason": "The answer accurately describes how requests attaches Basic authentication credentials to an outgoing request. It correctly identifies that HTTPBasicAuth is used, implements AuthBase, and that its __call__ method sets the Authorization header. The description of the Base64 encoding process and the use of _basic_auth_str is accurate. The mention of proxy authentication with HTTPProxyAuth, while additional, doesn't contradict the core answer. All key facts match the reference answer.",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.125,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/auth.py:61-100",
+        "src/requests/auth.py:121-160",
+        "src/requests/auth.py:1-40",
+        "src/requests/sessions.py:301-340",
+        "src/requests/auth.py:271-310",
+        "src/requests/auth.py:331-354",
+        "src/requests/auth.py:91-130",
+        "src/requests/adapters.py:601-640"
+      ],
+      "expected": [
+        "src/requests/auth.py:111"
+      ],
+      "tokens": 3371,
+      "llm_calls": 2,
+      "seconds": 1.9,
+      "error": ""
+    },
+    {
+      "question_id": "req-c08",
+      "system": "single_hop",
+      "category": "conceptual",
+      "answer": "The graph contains no match for how requests attaches Basic authentication credentials to an outgoing request. The query found no methods containing 'auth' in their qualified name that call a method named 'prepare'.\n\nYou might ask instead:\n- What classes or methods in the requests library handle authentication?\n- How does requests handle different types of authentication?\n- What is the structure of the requests library's authentication system?",
+      "verdict": "wrong",
+      "grade_reason": "The answer completely fails to address the question about how requests attaches Basic authentication credentials to an outgoing request. Instead, it mentions 'the graph contains no match' and suggests alternative questions, which is unhelpful and non-responsive. It does not explain the actual mechanism (HTTPBasicAuth callable setting the Authorization header) described in the reference answer.",
+      "missing_mentions": [
+        "HTTPBasicAuth",
+        "Authorization"
+      ],
+      "retrieval_recall": 0.0,
+      "retrieval_precision": 0.0,
+      "retrieval_hit": false,
+      "retrieved": [],
+      "expected": [
+        "src/requests/auth.py:111"
+      ],
+      "tokens": 2453,
+      "llm_calls": 3,
+      "seconds": 5.5,
+      "error": ""
+    },
+    {
+      "question_id": "req-c08",
+      "system": "multi_hop",
+      "category": "conceptual",
+      "answer": "Based on the code examination, we can now explain how the `requests` library attaches Basic authentication credentials to an outgoing request:\n\n1. When a request is made with Basic authentication, an instance of `HTTPBasicAuth` is created with the provided username and password.\n2. The `HTTPBasicAuth` class implements the `__call__` method, which takes a `PreparedRequest` object and adds an \"Authorization\" header to it.\n3. The value of the \"Authorization\" header is generated by the `_basic_auth_str` function, which:\n   - Ensures the username and password are properly encoded (handling backward compatibility for non-string types)\n   - Encodes the username and password as latin1 bytes if they're strings\n   - Joins the username and password with a colon (`:`)\n   - Base64 encodes the resulting byte string\n   - Prepends \"Basic \" to the base64-encoded string\n   - Converts the result to a native string using `to_native_string`\n\nHere's the key part of the implementation from `src/requests/auth.py`:\n\n```python\ndef _basic_auth_str(username: bytes | str, password: bytes | str) -> str:\n    \"\"\"Returns a Basic Auth string.\"\"\"\n    # ... (backward compatibility handling) ...\n    \n    if isinstance(username, str):\n        username = username.encode(\"latin1\")\n\n    if isinstance(password, str):\n        password = password.encode(\"latin1\")\n\n    authstr = \"Basic \" + to_native_string(\n        b64encode(b\":\".join((username, password))).strip()\n    )\n\n    return authstr\n```\n\nAnd in the `HTTPBasicAuth.__call__` method:\n\n```python\ndef __call__(self, r: PreparedRequest) -> PreparedRequest:\n    r.headers[\"Authorization\"] = _basic_auth_str(self.username, self.password)\n    return r\n```\n\nThis shows that the Basic authentication credentials are attached to the outgoing request by adding an \"Authorization\" header with the value formatted according to the HTTP Basic Authentication standard (RFC 7617).",
+      "verdict": "correct",
+      "grade_reason": "correct",
+      "missing_mentions": [],
+      "retrieval_recall": 1.0,
+      "retrieval_precision": 0.048,
+      "retrieval_hit": true,
+      "retrieved": [
+        "src/requests/__init__.py:11",
+        "src/requests/_types.py:124",
+        "src/requests/_types.py:130",
+        "src/requests/api.py:43",
+        "src/requests/auth.py:35",
+        "src/requests/auth.py:71",
+        "src/requests/auth.py:85",
+        "src/requests/auth.py:86",
+        "src/requests/auth.py:116",
+        "src/requests/cookies.py:117",
+        "src/requests/models.py:40",
+        "src/requests/models.py:685",
+        "src/requests/sessions.py:400",
+        "src/requests/sessions.py:594",
+        "tests/test_requests.py:580",
+        "tests/test_requests.py:2140",
+        "tests/test_requests.py:2144",
+        "tests/test_requests.py:2223",
+        "tests/test_requests.py:2228",
+        "src/requests/auth.py:85-113",
+        "src/requests/auth.py:34-75"
+      ],
+      "expected": [
+        "src/requests/auth.py:111"
+      ],
+      "tokens": 14565,
+      "llm_calls": 6,
+      "seconds": 9.3,
       "error": ""
     }
   ]
