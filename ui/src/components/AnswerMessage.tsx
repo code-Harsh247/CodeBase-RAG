@@ -16,16 +16,27 @@ export function AnswerMessage({
   onOpenTrace: (messageId: string) => void;
 }) {
   const steps = message.hops.length;
-  const isStreaming = message.status === "running" && message.streamingText.length > 0;
 
-  if (message.status === "running" && !message.answer && !isStreaming) {
+  // A tool-calling turn often narrates a sentence or two before the call
+  // ("Let me check X…") and that text streams in exactly like the real
+  // answer does — there is no way to tell them apart while it's arriving
+  // (see reducer.ts's `hopReceived`, which clears it once a turn's hop
+  // lands). Rendering it as a full formatted answer made it look like the
+  // answer kept appearing and then cutting off, turn after turn. Folding it
+  // into the same status line as "investigating — N steps" instead reads as
+  // what it is: transient progress, not an answer in the making. The real
+  // answer still streams in below live, character by character — it's the
+  // *display* that only promotes to full formatting once the run is done,
+  // not the streaming itself.
+  if (message.status === "running" && !message.answer) {
     return (
       <section className="msg msg--assistant answer">
         <p className="thinking">
           <span className="dot" />
-          {steps
-            ? `investigating — ${steps} step${steps === 1 ? "" : "s"} so far`
-            : "starting…"}
+          {message.streamingText ||
+            (steps
+              ? `investigating — ${steps} step${steps === 1 ? "" : "s"} so far`
+              : "starting…")}
         </p>
       </section>
     );
@@ -38,22 +49,11 @@ export function AnswerMessage({
         <p className="notice">This answer was interrupted.</p>
       )}
 
-      {message.answer ? (
+      {message.answer && (
         <>
           <AnswerBody text={message.answer.text} />
           <Locations locations={message.answer.locations} />
         </>
-      ) : (
-        isStreaming && (
-          // Raw text as it streams in — the cleaned-up version from the
-          // server (dedup'd trailing citations, etc.) replaces it above once
-          // the run finishes, which is why this branch only renders while
-          // `message.answer` is still null.
-          <>
-            <AnswerBody text={message.streamingText} />
-            <span className="stream-cursor" aria-hidden="true" />
-          </>
-        )
       )}
 
       {steps > 0 && (
