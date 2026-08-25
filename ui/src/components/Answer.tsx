@@ -1,6 +1,7 @@
 import type { AnchorHTMLAttributes, ReactNode, TableHTMLAttributes } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { highlightCode } from "../highlightCode";
 
 /** A `path/to/file.py` or `path/to/file.py:42` token — the citation format
  * the system prompt asks for. */
@@ -94,7 +95,7 @@ const COMPONENTS = { code: CodeSpan, table: TableWrap, a: ExternalLink };
  */
 export function AnswerBody({ text }: { text: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[highlightCode]} components={COMPONENTS}>
       {linkifyBareCitations(text)}
     </ReactMarkdown>
   );

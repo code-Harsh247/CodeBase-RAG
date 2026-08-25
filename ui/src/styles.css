@@ -304,6 +304,33 @@
   line-height: 1.5;
 }
 
+/* Syntax highlighting for fenced code — `rehype-highlight` tags tokens with
+   these classes; punctuation, variables and f-string interpolation are left
+   at the default text colour rather than assigned one, so the highlighted
+   parts (names, literals, comments) actually stand out instead of the whole
+   block turning into noise. `.hljs-title` covers both the bare class and the
+   compound `hljs-title function_`/`hljs-title class_` rehype-highlight emits
+   for def/class names — a class selector matches either. */
+.hljs-keyword {
+  color: var(--purple);
+}
+.hljs-built_in,
+.hljs-title {
+  color: var(--accent);
+}
+.hljs-string {
+  color: var(--green);
+}
+.hljs-number,
+.hljs-literal {
+  color: var(--amber);
+}
+.hljs-comment,
+.hljs-meta {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .answer blockquote {
   margin: 0 0 10px;
   padding: 2px 14px;
