@@ -155,7 +155,6 @@ def grade_answer(
             _GRADE_SCHEMA,
             system=_GRADER_SYSTEM,
             max_tokens=GRADER_MAX_TOKENS,
-            effort="low",
         )
     except Exception as exc:  # noqa: BLE001
         # Any provider failure — a rate limit, a malformed response, a network

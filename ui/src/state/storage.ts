@@ -37,6 +37,27 @@ function trim(store: ThreadStore): ThreadStore {
   return { ...store, threads };
 }
 
+/**
+ * Backfill the conversation-summary fields on threads written before they
+ * existed.
+ *
+ * Bumping the store version would have wiped every saved thread to add two
+ * defaults, and leaving them `undefined` fails quietly rather than loudly:
+ * `deriveHistory` compares against a message id, and nothing ever equals
+ * `undefined`, so an old thread would silently send no history at all.
+ */
+function withHistoryFields(threads: Record<string, Thread>): Record<string, Thread> {
+  const filled: Record<string, Thread> = {};
+  for (const [id, thread] of Object.entries(threads)) {
+    filled[id] = {
+      ...thread,
+      historySummary: thread.historySummary ?? "",
+      summarizedThroughMessageId: thread.summarizedThroughMessageId ?? null,
+    };
+  }
+  return filled;
+}
+
 export function loadStore(): ThreadStore {
   try {
     const raw = localStorage.getItem(THREADS_KEY);
@@ -48,7 +69,7 @@ export function loadStore(): ThreadStore {
     // Always land on the hero: history is kept and reachable from the sidebar,
     // but opening the app shows the title, description and a centered input
     // rather than dropping you back into the middle of an old conversation.
-    return { ...parsed, activeThreadId: null };
+    return { ...parsed, threads: withHistoryFields(parsed.threads), activeThreadId: null };
   } catch {
     return emptyStore();
   }

@@ -53,6 +53,31 @@ export type IngestEvent = ProgressEvent | DoneEvent | ErrorEvent;
 
 export type Mode = "multi_hop" | "single_hop";
 
+export interface HistoryTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * Fold recent turns into a thread's running summary.
+ *
+ * Called in the background once an answer lands, so the cost never sits in
+ * front of the next question. A plain request/response, not a stream — the
+ * result is a few sentences.
+ */
+export async function summarizeHistory(body: {
+  prior_summary: string;
+  turns: HistoryTurn[];
+}): Promise<string> {
+  const response = await fetch("/api/summarize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`Could not summarize history (${response.status})`);
+  return (await response.json()).summary;
+}
+
 export async function fetchRepos(): Promise<Repo[]> {
   const response = await fetch("/api/repos");
   if (!response.ok) throw new Error(`Could not load repositories (${response.status})`);
@@ -126,7 +151,13 @@ export async function deleteRepo(repoId: string): Promise<void> {
  * the answer streams in, then once more with the complete, cleaned-up answer.
  */
 export function streamQuery(
-  body: { repo_id: string; question: string; mode?: Mode },
+  body: {
+    repo_id: string;
+    question: string;
+    mode?: Mode;
+    history?: HistoryTurn[];
+    history_summary?: string;
+  },
   onEvent: (event: StreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {

@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 
 from agent.few_shot import render_examples
 from agent.provider import (
-    Effort,
     LLMProvider,
     LLMResponse,
     Message,
@@ -193,12 +192,9 @@ class MultiHopAgent:
         tools: list[dict],
         *,
         max_tokens: int,
-        effort: Effort,
     ) -> LLMResponse:
         final: LLMResponse | None = None
-        for event in self.provider.converse_stream(
-            messages, tools, max_tokens=max_tokens, effort=effort
-        ):
+        for event in self.provider.converse_stream(messages, tools, max_tokens=max_tokens):
             if isinstance(event, TextDelta):
                 if self.on_answer_delta is not None:
                     self.on_answer_delta(event.text)
@@ -207,15 +203,22 @@ class MultiHopAgent:
         assert final is not None, "provider stream ended without StreamComplete"
         return final
 
-    def _initial_messages(self, question: str) -> list[Message]:
+    def _initial_messages(
+        self, question: str, history: list[Message] | None = None
+    ) -> list[Message]:
         # This block is re-sent on every hop, so its size multiplies by the hop
         # count. Only the examples that generalise are worth that.
         context = (
             f"{_SYSTEM}\n\n{schema_description()}\n\n{render_examples(limit=EXAMPLES_IN_LOOP)}\n\n"
             f"The repository id is already bound to $repo_id in every query."
         )
+        # Earlier turns sit between the instructions and the new question, so a
+        # follow-up ("what calls it?") has something to resolve against. The
+        # caller is responsible for bounding this — it is re-sent every hop
+        # too, so its cost multiplies by the hop count just like the prompt.
         return [
             Message(role="system", content=context),
+            *(history or []),
             Message(role="user", content=question),
         ]
 
@@ -247,13 +250,13 @@ class MultiHopAgent:
 
         return Hop(call.name, argument, result.ok, result.text, result.locations)
 
-    def answer(self, question: str) -> AgentResult:
-        messages = self._initial_messages(question)
+    def answer(self, question: str, history: list[Message] | None = None) -> AgentResult:
+        messages = self._initial_messages(question, history)
         result = AgentResult(question=question, answer="")
 
         for hop_number in range(1, self.max_hops + 1):
             response = self._converse(
-                messages, TOOL_SPECS, max_tokens=TURN_MAX_TOKENS, effort="medium"
+                messages, TOOL_SPECS, max_tokens=TURN_MAX_TOKENS
             )
             result.usage.record(f"hop#{hop_number}", response)
 
@@ -288,7 +291,7 @@ class MultiHopAgent:
                 ),
             )
         )
-        final = self._converse(messages, [], max_tokens=TURN_MAX_TOKENS, effort="low")
+        final = self._converse(messages, [], max_tokens=TURN_MAX_TOKENS)
         result.usage.record("final", final)
         result.answer = _tidy_answer(final.text) or (
             f"I could not answer within {self.max_hops} investigation steps. "

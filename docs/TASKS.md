@@ -50,7 +50,7 @@ correct on spot-checks against source. Known limitations are documented in
 Goal: ask a question in English, get an answer grounded in one graph query — no multi-hop yet.
 
 - [x] `LLMProvider` interface (`generate`, plus a structured-output variant) — see ARCHITECTURE.md §2.4a
-- [x] Groq provider implementation (default: GPT-OSS 120B), reading `GROQ_API_KEY` from env
+- [x] Groq provider implementation (default: GPT-OSS 120B), reading `GROQ_API_KEY` from env — *removed after Phase 5; OpenRouter is now the only provider, see ARCHITECTURE.md §2.4a*
 - [x] Schema reference doc for prompting (auto-generated from the schema mapper, not hand-maintained twice)
 - [x] Few-shot example set (question → correct Cypher) covering common patterns (callers, callees, inheritance, imports)
 - [x] `graph_query(cypher)` tool: executes against Neo4j

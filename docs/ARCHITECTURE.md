@@ -68,33 +68,37 @@ Two independent pipelines share the same cloned repo: **ingestion** (build-time,
 The agent talks to the LLM through a small interface (`generate(prompt, tools) -> response`,
 plus a structured-output variant for schema-constrained generation), not a
 direct SDK call. This is a deliberate boundary, not speculative abstraction —
-the provider actually changes across phases of this project:
+the provider actually changed more than once across this project's phases, and
+the interface is what let that happen without touching agent logic.
 
-- **Default: OpenRouter, pinned to `qwen/qwen3-coder`.** At measured rates a
-  question costs about **$0.005**, so a few dollars of credit covers hundreds
-  of them. This became the default once the web UI existed: Groq's free tier
-  ran out mid-session, which is a worse failure than a fraction of a cent per
-  question.
-- **Free alternative, `--provider groq` (`GPT-OSS 120B`).** Limits: 1,000
-  requests/day, 30 requests/minute, 8,000 tokens/minute, and — **not listed in
-  Groq's published rate-limit table, discovered by hitting it in Phase 3** — a
-  hard **200,000 tokens/day**. That daily cap, not TPM, is the real
-  constraint: a multi-hop question costs 5,000-11,000 tokens, so it affords
-  roughly 20-35 questions a day. Fine for occasional CLI use, not for
-  interactive use or the Phase 4 eval sweep.
-- **Phase 4 scored eval run: a pinned model on OpenRouter, `qwen/qwen3-coder`
-  (`agent/openrouter_provider.py`).** OpenRouter passes through the
-  underlying provider's price with no markup, and is OpenAI-compatible in
-  shape — the same integration pattern as Groq, talked to directly over
-  `httpx` rather than a new SDK dependency. Qwen3 Coder was chosen over
-  cheaper generalist models because its own listing describes it as built for
-  "agentic coding tasks such as function calling, tool use, and long-context
-  reasoning over repositories" — a near-exact match for what this agent does.
-  Verified against the real schema and live questions: it produced correct,
+- **The provider: OpenRouter, pinned to `qwen/qwen3-coder`
+  (`agent/openrouter_provider.py`).** At measured rates a question costs about
+  **$0.005**, so a few dollars of credit covers hundreds of them. OpenRouter
+  passes through the underlying provider's price with no markup and is
+  OpenAI-compatible in shape, so it is talked to directly over `httpx` rather
+  than adding an SDK dependency. Qwen3 Coder was chosen over cheaper
+  generalist models because its own listing describes it as built for "agentic
+  coding tasks such as function calling, tool use, and long-context reasoning
+  over repositories" — a near-exact match for what this agent does. Verified
+  against the real schema and live questions: it produced correct,
   properly-scoped Cypher — including the `:Function|Method` label-union rule
   from the schema prompt — on a question that a candidate local model got
-  wrong (see below). Full eval run cost, at measured per-call pricing:
-  **under $0.25.**
+  wrong (see below). Full Phase 4 eval sweep cost, at measured per-call
+  pricing: **under $0.25.**
+- **Groq (`GPT-OSS 120B`) was the development provider through Phase 3, and
+  has since been removed.** Its free tier allowed 1,000 requests/day, 30/min,
+  8,000 tokens/min, and — **not listed in Groq's published rate-limit table,
+  discovered by hitting it in Phase 3** — a hard **200,000 tokens/day**. That
+  daily cap, not TPM, was the real constraint: a multi-hop question costs
+  5,000-11,000 tokens, affording roughly 20-35 questions a day. That was
+  workable for occasional CLI use and unworkable for the web UI, where it ran
+  out mid-session. Keeping it as a second option cost more than it was worth:
+  two providers meant the `Effort` knob existed purely to carry Groq's
+  `reasoning_effort` (OpenRouter ignored it, as effort has no uniform meaning
+  across its model catalog), and token budgeting could only ever be
+  approximate with two different tokenizers in play. Removing it collapsed
+  both — see §2.4b.
+
 - **Rejected, each for a concrete reason found by testing:**
   - **Gemini free tier** — confirmed 20 requests/day, unusable for iteration.
   - **`openrouter/free`** (the free-model router, not a pinned model) — it
@@ -127,6 +131,19 @@ harness's LLM-graded scoring) goes through the same interface, so the
 provider is a config value — `--provider openrouter --model qwen/qwen3-coder`
 on the CLI, or `LLM_PROVIDER`/`OPENROUTER_MODEL` in `.env` — not something
 threaded through the codebase.
+
+### 2.4b Token counting
+
+With one pinned model, conversation-history budgeting uses that model's real
+tokenizer (`agent/tokenizer.py`) rather than a character-count proxy: the
+chars-per-token ratio swings several-fold between prose and dense code, and
+code is most of what these turns quote. Only `tokenizer.json` is fetched (a
+few MB of vocabulary and merge rules, cached under `~/.cache/huggingface`) —
+never model weights — via the Rust-backed `tokenizers` package, keeping the
+same no-torch constraint that already governs the ONNX embedding model.
+
+This is a concrete dividend of collapsing to one provider: with two, the
+count could only ever have been approximate.
 
 ### 2.5 Answer Synthesis
 - Once the agent has enough context, a final LLM call composes the answer, required to cite `file:line` for every factual claim, sourced from the graph node properties (`file_path`, `start_line`, `end_line`) captured at ingestion time.
@@ -272,7 +289,7 @@ language-agnosticism as a design intent, not a proven claim.
 | Parsing | tree-sitter (`tree-sitter-python`) | Language-agnostic ASTs, fast, incremental-parse capable for future incremental indexing. Only the Python grammar is wired up. |
 | Graph DB | Neo4j (Community, via Docker) | Industry-recognized, Cypher, Neo4j Browser gives free visualization for demo material. |
 | Vector store | Chroma (dev) / Qdrant (if hosted demo) | Simple local dev story; Qdrant if a hosted stretch demo is built. |
-| LLM | Groq (GPT-OSS 120B), behind a provider interface | Free tier with workable quota (see below); tool-use support; swappable without touching the agent logic. |
+| LLM | OpenRouter (`qwen/qwen3-coder`), behind a provider interface | Built for agentic tool use over repositories; ~$0.005/question; swappable without touching the agent logic. |
 | Backend | Python, FastAPI | Matches tree-sitter/Python ecosystem, easy to expose as an API. |
 | Frontend | Streamlit (MVP) → minimal React chat UI (stretch) | Streamlit gets a working demo fast; upgrade only if time allows and UI polish matters for the portfolio presentation. |
 | Deployment | Docker Compose (Neo4j + backend + vector store) | One-command local setup for reviewers, per PRD NFR. |
@@ -305,12 +322,11 @@ language-agnosticism as a design intent, not a proven claim.
 | Python only at MVP | Match code-graph-rag's 13, or the 2 originally planned here | Depth and a working eval story beat shallow breadth for a portfolio piece. The cost is real and worth stating plainly: the schema's language-agnosticism is now a *design property backed by argument*, not one demonstrated by a second implementation. Adding a language remains a well-scoped extension. |
 | Embed summaries, not raw code chunks | Embed raw code | Natural-language descriptions retrieve better against natural-language queries; established technique, not speculative. |
 | Skip eBPF/runtime tracing | Match code-graph-rag | High implementation cost, not central to proving the graph-vs-vector thesis; explicitly deferred in the PRD. |
-| Groq (free) for development, over Gemini (free) or paying throughout | Gemini free tier; paying for a frontier model on every request | Gemini's confirmed 20 requests/day is unworkable for iteration. Groq's 1,000/day (with an undocumented 200k tokens/day ceiling, found in Phase 3) is workable for normal dev, just not for a bulk eval sweep. Paying throughout was rejected as unnecessary cost for the 95% of usage that is iteration, not the scored result. |
+| Groq (free) for development through Phase 3, over Gemini (free) or paying throughout — since removed in favour of OpenRouter alone | Gemini free tier; paying for a frontier model on every request | Gemini's confirmed 20 requests/day is unworkable for iteration. Groq's 1,000/day (with an undocumented 200k tokens/day ceiling, found in Phase 3) is workable for normal dev, just not for a bulk eval sweep. Paying throughout was rejected as unnecessary cost for the 95% of usage that is iteration, not the scored result. |
 | OpenRouter + pinned `qwen/qwen3-coder`, for the Phase 4 eval run, over Anthropic or OpenRouter's free-model router | Anthropic Haiku 4.5 (reserved budget); `openrouter/free` | Pass-through pricing matches Anthropic's cost with one fewer API key in the project. The free router was tested and rejected outright — it routed one call to a content-safety classifier model. Qwen3 Coder specifically, over other cheap options, because it is built for agentic tool use over code, and it visibly used a schema rule (the `:Function|Method` label union) that a candidate local model ignored on the same question. |
-| A provider interface instead of calling any vendor SDK directly | Direct SDK calls from the agent code | The provider was already expected to change more than once (Groq for dev, a pinned OpenRouter model for eval, plus two rejected local models tested through the same interface) before a line of agent code depended on a specific vendor's shape — a concrete reason for the boundary, not speculative future-proofing. |
+| A provider interface instead of calling any vendor SDK directly | Direct SDK calls from the agent code | The provider changed more than once (Groq for dev, a pinned OpenRouter model for eval, plus two rejected local models tested through the same interface) before a line of agent code depended on a specific vendor's shape — a concrete reason for the boundary, not speculative future-proofing. It still earns its keep with one provider: it is what `FakeProvider` substitutes for in the tests. |
 
 ## 8. Open Technical Risks
 
 - Tree-sitter query complexity for accurately resolving `CALLS` edges in a dynamic language (Python's dynamic dispatch, monkey-patching, `getattr`) — likely the hardest correctness problem in the project; scope the eval harness to be honest about known gaps here rather than overclaiming recall. **Phase 1 update:** confirmed as the main source of missed edges; see "Resolution: what works, and what does not" above for the measured breakdown. Return-value type inference is the highest-value remaining improvement.
-- Groq's 8,000 TPM cap during the Phase 4 eval sweep (~200-250 calls in one run) — needs inter-call pacing in the eval harness; if that makes the run impractically slow, fall back to the reserved paid budget for that run only rather than absorbing the slowdown silently.
 - Cypher generation reliability from the LLM — mitigate with strict schema-grounded prompting, few-shot examples, and validation before execution; track failure rate as part of the eval harness, not just success cases.

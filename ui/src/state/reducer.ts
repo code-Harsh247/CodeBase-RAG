@@ -14,6 +14,7 @@ export type Action =
   | { type: "answerReceived"; threadId: string; messageId: string; answer: AssistantMsg["answer"] }
   | { type: "runFailed"; threadId: string; messageId: string; message: string }
   | { type: "runAborted"; threadId: string; messageId: string }
+  | { type: "historySummarized"; threadId: string; summary: string; throughMessageId: string }
   | { type: "threadRemoved"; threadId: string }
   | { type: "activeThreadSet"; threadId: string | null };
 
@@ -70,6 +71,8 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
         createdAt: now,
         updatedAt: now,
         messages: [message],
+        historySummary: "",
+        summarizedThroughMessageId: null,
       };
       return {
         ...store,
@@ -87,6 +90,8 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
         createdAt: now,
         updatedAt: now,
         messages: [],
+        historySummary: "",
+        summarizedThroughMessageId: null,
       };
       return {
         ...store,
@@ -190,6 +195,13 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
       return patchMessage(store, action.threadId, action.messageId, (message) =>
         message.kind === "user" ? message : { ...message, status: "aborted" },
       );
+
+    case "historySummarized":
+      return patchThread(store, action.threadId, (thread) => ({
+        ...thread,
+        historySummary: action.summary,
+        summarizedThroughMessageId: action.throughMessageId,
+      }));
 
     case "threadRemoved": {
       const threads = { ...store.threads };

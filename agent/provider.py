@@ -1,11 +1,12 @@
 """LLM provider interface.
 
-The agent never imports a vendor SDK directly. The provider changes across
-phases of this project — Groq for day-to-day development, a pinned model on
-OpenRouter for the Phase 4 scored eval run — so the boundary earns its keep.
-See docs/ARCHITECTURE.md section 2.4a for the reasoning and what was tried
-and rejected along the way (Gemini's free tier, OpenRouter's free-model
-router, two local Ollama models).
+The agent never imports a vendor SDK directly. OpenRouter is the only
+implementation today — Groq was dropped once its free tier's 200k tokens/day
+stopped covering a UI session — but the boundary still earns its keep: it is
+what `FakeProvider` substitutes for in the tests, and what a second provider
+would slot into. See docs/ARCHITECTURE.md section 2.4a for what was tried and
+rejected along the way (Gemini's free tier, OpenRouter's free-model router,
+two local Ollama models).
 """
 
 from __future__ import annotations
@@ -15,10 +16,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Literal
-
-#: How much internal reasoning to spend. Providers map this to their own knob;
-#: on Groq it is `reasoning_effort`, which directly drives token burn.
-Effort = Literal["low", "medium", "high"]
 
 
 @dataclass
@@ -107,7 +104,6 @@ class LLMProvider(ABC):
         *,
         system: str | None = None,
         max_tokens: int = 1024,
-        effort: Effort = "medium",
     ) -> LLMResponse:
         """Free-form text generation."""
 
@@ -119,7 +115,6 @@ class LLMProvider(ABC):
         *,
         system: str | None = None,
         max_tokens: int = 1024,
-        effort: Effort = "medium",
     ) -> tuple[dict, LLMResponse]:
         """Generation constrained to ``json_schema``. Returns the parsed object."""
 
@@ -130,7 +125,6 @@ class LLMProvider(ABC):
         tools: list[dict],
         *,
         max_tokens: int = 2048,
-        effort: Effort = "medium",
     ) -> LLMResponse:
         """One turn of a tool-using conversation.
 
@@ -145,7 +139,6 @@ class LLMProvider(ABC):
         tools: list[dict],
         *,
         max_tokens: int = 2048,
-        effort: Effort = "medium",
     ) -> Iterator[TextDelta | StreamComplete]:
         """Streamed form of :meth:`converse`.
 
@@ -158,12 +151,7 @@ class LLMProvider(ABC):
 
 def get_provider(name: str | None = None, model: str | None = None) -> LLMProvider:
     """Build the configured provider. Defaults come from the environment."""
-    name = (name or os.environ.get("LLM_PROVIDER") or "groq").lower()
-
-    if name == "groq":
-        from agent.groq_provider import GroqProvider
-
-        return GroqProvider(model=model or os.environ.get("LLM_MODEL"))
+    name = (name or os.environ.get("LLM_PROVIDER") or "openrouter").lower()
 
     if name == "openrouter":
         from agent.openrouter_provider import OpenRouterProvider
@@ -172,5 +160,5 @@ def get_provider(name: str | None = None, model: str | None = None) -> LLMProvid
 
     raise ValueError(
         f"Unknown LLM provider {name!r}. Set LLM_PROVIDER to a supported value "
-        f"(groq, openrouter)."
+        f"(openrouter)."
     )

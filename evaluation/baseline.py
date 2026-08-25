@@ -196,7 +196,6 @@ class NaiveRAG:
             f"Answer the question from these excerpts.",
             system=_ANSWER_SYSTEM,
             max_tokens=ANSWER_MAX_TOKENS,
-            effort="low",
         )
         result.usage.record("baseline_answer", response)
         result.answer = _tidy_answer(response.text)

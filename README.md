@@ -25,7 +25,7 @@ pip install -e ".[dev]"
 
 Neo4j Browser is then at http://localhost:7474 (default credentials `neo4j` / `changeme123`).
 
-Natural-language querying needs an LLM key in `.env`. The default is [OpenRouter](https://openrouter.ai/settings/keys) (`OPENROUTER_API_KEY`), pinned to `qwen/qwen3-coder` — about **$0.005 a question**, so a few dollars lasts a long time. A free [Groq](https://console.groq.com) key (`GROQ_API_KEY`, then `--provider groq`) also works, but its undocumented 200,000 tokens/day cap affords only 20-40 questions and tends to run out mid-session. Full reasoning, including what else was tested and rejected, in [docs/ARCHITECTURE.md §2.4a](docs/ARCHITECTURE.md#24a-llm-provider).
+Natural-language querying needs an [OpenRouter](https://openrouter.ai/settings/keys) key (`OPENROUTER_API_KEY`) in `.env`, pinned to `qwen/qwen3-coder` — about **$0.005 a question**, so a few dollars lasts a long time. The first query also downloads that model's tokenizer (a few MB, cached; no model weights) to budget conversation history accurately. Full reasoning, including what else was tested and rejected, in [docs/ARCHITECTURE.md §2.4a](docs/ARCHITECTURE.md#24a-llm-provider).
 
 ## Usage
 

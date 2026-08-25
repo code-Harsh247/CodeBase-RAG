@@ -3,7 +3,7 @@ from __future__ import annotations
 from conftest import ChunkedProvider, FakeNeo4j, FakeProvider
 
 from agent.agent_loop import TOOL_SPECS, Hop, MultiHopAgent
-from agent.provider import LLMResponse, ToolCall
+from agent.provider import LLMResponse, Message, ToolCall
 from retrieval.tools import RetrievalTools, ToolResult
 
 VALID_CYPHER = "MATCH (f:Function {repo_id: $repo_id}) RETURN f.name AS name LIMIT 25"
@@ -222,6 +222,48 @@ def test_answer_deltas_still_flow_through_tool_hops_before_the_final_turn():
     assert received == ["Found ", "it."]
     assert result.answer == "Found it."
     assert len(result.hops) == 1
+
+
+def test_history_sits_between_the_instructions_and_the_new_question():
+    provider = FakeProvider(turns=[_text_turn("It is called by main.")])
+    history = [
+        Message(role="user", content="what does send do?"),
+        Message(role="assistant", content="It sends a request."),
+    ]
+    MultiHopAgent(provider, FakeTools()).answer("what calls it?", history=history)
+
+    roles = [message.role for message in provider.conversations[0]]
+    assert roles == ["system", "user", "assistant", "user"]
+
+    contents = [message.content for message in provider.conversations[0]]
+    assert contents[1] == "what does send do?"
+    assert contents[2] == "It sends a request."
+    assert contents[3] == "what calls it?"
+
+
+def test_history_survives_across_hops():
+    # Every hop re-sends the whole conversation, so history has to still be
+    # there on the turn that actually produces the answer.
+    provider = FakeProvider(
+        turns=[
+            _tool_turn("graph_query", {"cypher": VALID_CYPHER}),
+            _text_turn("Found it."),
+        ]
+    )
+    history = [Message(role="user", content="earlier question")]
+    MultiHopAgent(provider, FakeTools()).answer("follow-up", history=history)
+
+    second_turn = provider.conversations[1]
+    assert any(message.content == "earlier question" for message in second_turn)
+
+
+def test_a_question_with_no_history_is_unchanged():
+    provider = FakeProvider(turns=[_text_turn("Direct answer.")])
+    result = MultiHopAgent(provider, FakeTools()).answer("hello")
+
+    roles = [message.role for message in provider.conversations[0]]
+    assert roles == ["system", "user"]
+    assert result.answer == "Direct answer."
 
 
 def test_graph_query_tool_enforces_the_cypher_guard():

@@ -150,7 +150,6 @@ class QueryAgent:
             self._answer_prompt(question, outcome),
             system=_ANSWER_SYSTEM,
             max_tokens=ANSWER_MAX_TOKENS,
-            effort="low",
         )
         result.usage.record("synthesis", response)
         result.answer = _tidy_answer(response.text)
@@ -163,7 +162,6 @@ class QueryAgent:
                 _CYPHER_SCHEMA,
                 system=_CYPHER_SYSTEM,
                 max_tokens=CYPHER_MAX_TOKENS,
-                effort="medium",
             )
             result.usage.record(f"cypher#{attempt_number}", response)
 

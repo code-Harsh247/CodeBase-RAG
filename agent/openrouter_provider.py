@@ -2,12 +2,11 @@
 
 OpenRouter has no first-party SDK worth adding as a dependency — it is a plain
 REST API, OpenAI-compatible in shape, so this talks to it directly over
-``httpx`` (already installed transitively via the Groq client, but declared
-explicitly since this module imports it directly).
+``httpx``.
 
-Used as the pinned model for the Phase 4 scored eval run, not for day-to-day
-development — see docs/ARCHITECTURE.md section 2.4a for why. Two things this
-module deliberately does NOT do, both learned by testing rather than assumed:
+The only provider implementation — see docs/ARCHITECTURE.md section 2.4a for
+what else was tried and rejected. Two things this module deliberately does
+NOT do, both learned by testing rather than assumed:
 
 * It never routes through ``openrouter/free``. That router picks a model at
   random per request and, tested directly, landed on a content-safety
@@ -26,7 +25,6 @@ from collections.abc import Iterator
 import httpx
 
 from agent.provider import (
-    Effort,
     LLMProvider,
     LLMResponse,
     Message,
@@ -100,11 +98,7 @@ class OpenRouterProvider(LLMProvider):
         *,
         system: str | None = None,
         max_tokens: int = 1024,
-        effort: Effort = "medium",
     ) -> LLMResponse:
-        # `effort` has no uniform meaning across OpenRouter's model catalog —
-        # unlike Groq, where every request goes to one known model — so it is
-        # accepted for interface parity and not forwarded.
         return self._complete(prompt, system, max_tokens)
 
     def generate_json(
@@ -114,7 +108,6 @@ class OpenRouterProvider(LLMProvider):
         *,
         system: str | None = None,
         max_tokens: int = 1024,
-        effort: Effort = "medium",
     ) -> tuple[dict, LLMResponse]:
         response = self._complete(
             prompt,
@@ -137,7 +130,6 @@ class OpenRouterProvider(LLMProvider):
         tools: list[dict],
         *,
         max_tokens: int = 2048,
-        effort: Effort = "medium",
     ) -> LLMResponse:
         data = self._post(
             {
@@ -155,7 +147,6 @@ class OpenRouterProvider(LLMProvider):
         tools: list[dict],
         *,
         max_tokens: int = 2048,
-        effort: Effort = "medium",
     ) -> Iterator[TextDelta | StreamComplete]:
         payload = {
             "model": self.model,
@@ -167,8 +158,9 @@ class OpenRouterProvider(LLMProvider):
         }
 
         text_parts: list[str] = []
-        # Same accumulation shape as the Groq stream: tool-call fragments are
-        # keyed by index and `arguments` is concatenated across chunks.
+        # Tool-call fragments arrive split across chunks, keyed by index: the
+        # id and function name each show up once, `arguments` is concatenated
+        # across every chunk that carries a piece of it.
         pending_calls: dict[int, dict] = {}
         model_name = self.model
         usage: dict | None = None

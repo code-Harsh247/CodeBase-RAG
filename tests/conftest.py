@@ -31,26 +31,26 @@ class FakeProvider(LLMProvider):
         self.prompts: list[str] = []
         self.conversations: list[list] = []
 
-    def generate(self, prompt, *, system=None, max_tokens=1024, effort="medium"):
+    def generate(self, prompt, *, system=None, max_tokens=1024):
         self.prompts.append(prompt)
         return LLMResponse(text=self.answer, model="fake", input_tokens=10, output_tokens=5)
 
-    def generate_json(self, prompt, json_schema, *, system=None, max_tokens=1024, effort="medium"):
+    def generate_json(self, prompt, json_schema, *, system=None, max_tokens=1024):
         self.prompts.append(prompt)
         payload = self.cypher_payloads.pop(0)
         return payload, LLMResponse(text="{}", model="fake", input_tokens=20, output_tokens=8)
 
-    def converse(self, messages, tools, *, max_tokens=2048, effort="medium"):
+    def converse(self, messages, tools, *, max_tokens=2048):
         self.conversations.append(list(messages))
         if self.turns:
             return self.turns.pop(0)
         return LLMResponse(text=self.answer, model="fake", input_tokens=30, output_tokens=10)
 
-    def converse_stream(self, messages, tools, *, max_tokens=2048, effort="medium"):
+    def converse_stream(self, messages, tools, *, max_tokens=2048):
         """Wraps `converse` as a single-chunk stream — enough for tests that
         don't care about incremental delivery. `ChunkedProvider` below scripts
         genuine multi-chunk streams where that matters."""
-        response = self.converse(messages, tools, max_tokens=max_tokens, effort=effort)
+        response = self.converse(messages, tools, max_tokens=max_tokens)
         if response.text:
             yield TextDelta(response.text)
         yield StreamComplete(response)
@@ -69,7 +69,7 @@ class ChunkedProvider(FakeProvider):
         self.chunks = list(chunks)
         self.delta_calls: list[str] = []
 
-    def converse_stream(self, messages, tools, *, max_tokens=2048, effort="medium"):
+    def converse_stream(self, messages, tools, *, max_tokens=2048):
         self.conversations.append(list(messages))
         response = self.turns.pop(0) if self.turns else LLMResponse(
             text=self.answer, model="fake", input_tokens=30, output_tokens=10

@@ -64,6 +64,15 @@ export interface Thread {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+  /**
+   * Running summary of the turns before `summarizedThroughMessageId`, folded
+   * in by the server as the thread grows. A plain window would drop those
+   * turns outright; this keeps what they established at roughly fixed cost.
+   */
+  historySummary: string;
+  /** Newest assistant message covered by `historySummary`; null until the
+   * first fold-in. Everything after it is sent verbatim. */
+  summarizedThroughMessageId: string | null;
 }
 
 export interface ThreadStore {

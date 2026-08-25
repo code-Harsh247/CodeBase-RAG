@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { streamIngest, streamQuery } from "../api";
+import { streamIngest, streamQuery, summarizeHistory } from "../api";
+import { deriveHistory, newestSummarizableId, shouldSummarize } from "./history";
 import { threadReducer } from "./reducer";
 import { loadStore, saveStore } from "./storage";
 import { newId, type Thread } from "./types";
@@ -97,15 +98,26 @@ export function useThreadStore() {
     const controller = new AbortController();
     runs.current.set(threadId, controller);
 
+    // Snapshot taken before this question was dispatched, so it carries only
+    // completed earlier turns — the in-flight one is not in it yet.
+    const history = deriveHistory(thread);
+    let answerText: string | null = null;
+
     try {
       await streamQuery(
-        { repo_id: thread.repoId, question: text },
+        {
+          repo_id: thread.repoId,
+          question: text,
+          history: history.turns,
+          history_summary: history.summary,
+        },
         (event) => {
           if (event.type === "hop") {
             dispatch({ type: "hopReceived", threadId, messageId: assistantId, hop: event });
           } else if (event.type === "answer_delta") {
             dispatch({ type: "answerDelta", threadId, messageId: assistantId, text: event.text });
           } else if (event.type === "answer") {
+            answerText = event.answer;
             dispatch({
               type: "answerReceived",
               threadId,
@@ -141,6 +153,37 @@ export function useThreadStore() {
     } finally {
       runs.current.delete(threadId);
     }
+
+    // Fold older turns into the running summary once the thread has grown past
+    // the threshold — but only the ones that were already there, never the
+    // exchange that just finished. That one stays raw so the next question has
+    // verbatim context to resolve against; see `newestSummarizableId`.
+    if (answerText === null) return;
+    const foldThroughId = newestSummarizableId(thread);
+    if (!foldThroughId || !history.turns.length) return;
+
+    const weight = [
+      ...history.turns,
+      { role: "user" as const, content: text },
+      { role: "assistant" as const, content: answerText },
+    ];
+    if (!shouldSummarize(weight)) return;
+
+    // Deliberately not awaited by the caller: this runs behind the UI so the
+    // next question never waits on it. If it fails the thread simply keeps
+    // sending these turns verbatim until a later fold-in succeeds.
+    void summarizeHistory({ prior_summary: history.summary, turns: history.turns })
+      .then((summary) => {
+        dispatch({
+          type: "historySummarized",
+          threadId,
+          summary,
+          throughMessageId: foldThroughId,
+        });
+      })
+      .catch((exc) => {
+        console.warn("could not summarize conversation history", exc);
+      });
   }, []);
 
   return { store, dispatch, startIngest, ask, isRunning: (id: string) => runs.current.has(id) };
