@@ -33,6 +33,14 @@ export interface AssistantMsg {
    * arrives — see the `answerReceived` reducer case, which clears it.
    */
   streamingText: string;
+  /**
+   * Set when a hop lands. The *next* `answerDelta` replaces `streamingText`
+   * instead of appending to it, deferred rather than immediate — so a turn's
+   * finished narration stays on screen for as long as its tool actually
+   * takes to run, instead of vanishing the instant the hop is dispatched,
+   * which was too fast to read.
+   */
+  streamingTextStale: boolean;
   answer: {
     text: string;
     locations: string[];

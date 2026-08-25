@@ -132,6 +132,7 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
             questionId: action.userId,
             hops: [],
             streamingText: "",
+            streamingTextStale: false,
             answer: null,
             error: null,
             status: "running",
@@ -146,18 +147,28 @@ export function threadReducer(store: ThreadStore, action: Action): ThreadStore {
           ? // A tool-calling turn often narrates a sentence or two before the
             // call ("Let me check X…") and that text streams in exactly like
             // the real answer does — there is no way to tell them apart while
-            // it's arriving. Once the hop lands, that turn is over and its
-            // narration is spent (it went into tool-call history, not the
-            // answer), so clear it here rather than letting it and every
-            // later turn's narration glue together into one runaway string.
-            { ...message, hops: [...message.hops, action.hop], streamingText: "" }
+            // it's arriving. That turn is over now and its narration is spent
+            // (it went into tool-call history, not the answer) — but it stays
+            // on screen rather than clearing here: the tool this hop just ran
+            // took real time, and clearing immediately left it visible for a
+            // few hundred milliseconds, not long enough to read. Marking it
+            // stale defers the clear until the next turn actually has new
+            // text to show, so the reader always has *something* on screen
+            // and it only changes when there's something new to replace it.
+            { ...message, hops: [...message.hops, action.hop], streamingTextStale: true }
           : message,
       );
 
     case "answerDelta":
       return patchMessage(store, action.threadId, action.messageId, (message) =>
         message.kind === "assistant"
-          ? { ...message, streamingText: message.streamingText + action.text }
+          ? {
+              ...message,
+              streamingText: message.streamingTextStale
+                ? action.text
+                : message.streamingText + action.text,
+              streamingTextStale: false,
+            }
           : message,
       );
 
