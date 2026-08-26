@@ -263,3 +263,60 @@ def test_grading_records_token_usage_when_asked():
 
     assert usage.calls == 1
     assert isinstance(provider.generate("x"), LLMResponse)
+
+
+def test_a_grounded_wrong_verdict_is_accepted_without_a_regrade():
+    provider = FakeProvider(
+        cypher_payloads=[{"verdict": "wrong", "reason": "misses X", "quote": "an answer"}]
+    )
+    grade = grade_answer(provider, "q", "reference", "an answer", [])
+
+    assert grade.verdict == "wrong"
+    assert grade.grounded
+    assert len(provider.cypher_payloads) == 0, "only one grading call should have run"
+
+
+def test_an_ungrounded_verdict_triggers_one_regrade():
+    # The first "quote" does not appear anywhere in the graded answer — the
+    # exact shape of the real bug this check exists to catch (metrics.py's
+    # AnswerGrade.grounded docstring). The regrade should fire and its result
+    # should win.
+    provider = FakeProvider(
+        cypher_payloads=[
+            {"verdict": "wrong", "reason": "reversed order", "quote": "text never written"},
+            {"verdict": "correct", "reason": "matches on a closer read", "quote": "an answer"},
+        ]
+    )
+    grade = grade_answer(provider, "q", "reference", "an answer", [])
+
+    assert grade.verdict == "correct"
+    assert grade.reason == "matches on a closer read"
+    assert grade.grounded
+    assert len(provider.cypher_payloads) == 0, "the regrade should have consumed both payloads"
+
+
+def test_a_regrade_that_is_still_ungrounded_is_flagged_not_hidden():
+    provider = FakeProvider(
+        cypher_payloads=[
+            {"verdict": "wrong", "reason": "first miss", "quote": "nowhere in the text"},
+            {"verdict": "wrong", "reason": "still claims this", "quote": "still not there"},
+        ]
+    )
+    grade = grade_answer(provider, "q", "reference", "an answer", [])
+
+    assert grade.verdict == "wrong"
+    assert not grade.grounded
+
+
+def test_a_correct_verdict_is_never_regraded_even_with_an_unfindable_quote():
+    # "correct" needs no evidence quote by design (empty is the documented
+    # case) — an ungrounded quote alongside it should not spend a second call.
+    provider = FakeProvider(
+        cypher_payloads=[
+            {"verdict": "correct", "reason": "matches", "quote": "text that isn't in the answer"}
+        ]
+    )
+    grade = grade_answer(provider, "q", "reference", "an answer", [])
+
+    assert grade.verdict == "correct"
+    assert len(provider.cypher_payloads) == 0, "only one grading call should have run"

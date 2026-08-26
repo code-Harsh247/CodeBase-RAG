@@ -2,7 +2,7 @@
 
 Graph-augmented codebase Q&A for **Python** repositories. Give it a public GitHub repo URL; it parses the code with tree-sitter into a Neo4j knowledge graph (functions, classes, calls, imports, inheritance) and answers natural-language questions using an agent that combines graph queries, semantic search, and grep — instead of naive chunk-and-embed RAG.
 
-**Status:** Phase 4 complete — measured against a naive-RAG baseline on 22 hand-verified questions, the multi-hop agent answers **95% correctly with zero wrong answers**, against 64% for chunk-and-embed RAG. See [Results](#results) below and [docs/TASKS.md](docs/TASKS.md).
+**Status:** measured against a naive-RAG baseline across two structurally different repositories (44 hand-verified questions total), the multi-hop agent answers **86% and 82% correctly**, against 41% and 55% for chunk-and-embed RAG. See [Results](#results) below and [docs/EVAL.md](docs/EVAL.md).
 
 **Scope:** Python only, deliberately. The graph schema carries nothing Python-specific and a second language would mean writing one new visitor — but that is a post-MVP extension, not a v1 claim. Depth on one language with measured resolution quality beats a longer language list that is only partly true.
 
@@ -132,20 +132,21 @@ Ingesting from the UI does the same work as `cli.py ingest`, so either entry poi
 
 ## Results
 
-22 hand-verified questions over `psf/requests`, three systems scored on identical inputs — same LLM, same embedding model, same grader — so the gap reflects retrieval strategy, not model choice. Full methodology: [docs/ARCHITECTURE.md §2.6](docs/ARCHITECTURE.md).
+22 hand-verified questions each on `psf/requests` (HTTP client, function-call-heavy) and `pallets/click` (CLI framework, decorator- and class-heavy) — chosen to be structurally different, so a result that holds on both is evidence of generalizing rather than a number tuned to one codebase. Three systems scored on identical inputs — same LLM, same embedding model, same grader — so the gap reflects retrieval strategy, not model choice. Full methodology and per-category breakdown: [docs/EVAL.md](docs/EVAL.md).
 
-| system | accuracy | wrong | tokens/question |
-|---|---|---|---|
-| naive RAG (chunk + embed) | 64% | 2 | ~3,350 |
-| graph, single Cypher query | 36% | 10 | ~2,470 |
-| **graph, multi-hop agent** | **95%** | **0** | ~11,540 |
+| system | requests | click |
+|---|---|---|
+| naive RAG (chunk + embed) | 41% | 55% |
+| graph, single Cypher query | 27% | 27% |
+| **graph, multi-hop agent** | **86%** | **82%** |
 
-The interesting finding isn't "graph beats vectors" — it's that **iteration is what makes structure useful**. A single Cypher query, run alone, is *worse* than naive RAG: one wrong guess is fatal with no way to recover, and it scores 0/6 on questions that need a name discovered before the real query can even be written. Multi-hop retrieval — query, look at the result, search semantically, read the source, decide the next step — is what turns "the graph didn't have that" into a solved problem, at a real cost: ~3.4x the baseline's tokens.
+The interesting finding isn't "graph beats vectors" — it's that **iteration is what makes structure useful**. A single Cypher query, run alone, is *worse* than naive RAG on both repos: one wrong guess is fatal with no way to recover, and it scores 0/6 on multi-hop questions almost by definition — those need a name discovered before the real query can even be written. Multi-hop retrieval — query, look at the result, search semantically, read the source, decide the next step — is what turns "the graph didn't have that" into a solved problem. It sweeps or near-sweeps conceptual questions (7/8 and 5/8) where the single-query system manages 0/8 and 1/8, since a question phrased as behaviour has no single query that answers it.
 
 Reproduce it:
 
 ```bash
-python cli.py eval --provider openrouter --model qwen/qwen3-coder
+python cli.py eval --questions evaluation/questions/requests.json
+python cli.py eval --questions evaluation/questions/click.json
 ```
 
 ## Development
@@ -160,4 +161,5 @@ Tests that need a live Neo4j skip automatically when none is reachable.
 
 - [Product Requirements](docs/PRD.md)
 - [Architecture & Design](docs/ARCHITECTURE.md) — including [measured resolution limitations](docs/ARCHITECTURE.md#resolution-what-works-and-what-does-not) and the [eval methodology](docs/ARCHITECTURE.md#26-evaluation-harness)
-- [Task Breakdown & full Phase 4 results](docs/TASKS.md)
+- [Evaluation: results, methodology, both repositories](docs/EVAL.md)
+- [Task Breakdown & phase-by-phase history](docs/TASKS.md)

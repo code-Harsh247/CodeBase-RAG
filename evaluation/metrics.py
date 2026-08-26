@@ -34,12 +34,19 @@ _GRADER_SYSTEM = (
     "question. Ignore differences in wording, length, formatting, and citation "
     "style.\n"
     '- "correct": states the substance of the reference answer, with no false '
-    "claims.\n"
+    "claims. Extra detail beyond the reference is fine and does not by itself "
+    "lower the grade — only mark it down if you can identify a specific way "
+    "it is actually wrong. Do not guess that an unverified detail might be "
+    'incorrect and grade as if it were; "possibly wrong" is not "wrong".\n'
     '- "partial": some correct substance, but incomplete, hedged to the point '
-    "of being unhelpful, or mixed with an inaccuracy.\n"
+    "of being unhelpful, or mixed with a claim you can identify as an "
+    "inaccuracy.\n"
     '- "wrong": fails to answer, contradicts the reference, or invents things.\n'
     "An answer that honestly says it could not find the information is "
-    '"wrong" (it did not answer), never "partial".'
+    '"wrong" (it did not answer), never "partial".\n'
+    'For "partial" or "wrong", copy the exact phrase from the answer being '
+    "graded that most directly shows the flaw — verbatim, not paraphrased or "
+    'reconstructed from memory. For "correct", quote can be empty.'
 )
 
 _GRADE_SCHEMA = {
@@ -47,8 +54,12 @@ _GRADE_SCHEMA = {
     "properties": {
         "verdict": {"type": "string", "enum": ["correct", "partial", "wrong"]},
         "reason": {"type": "string", "description": "One sentence justifying the verdict."},
+        "quote": {
+            "type": "string",
+            "description": "Verbatim evidence from the graded answer, or empty for 'correct'.",
+        },
     },
-    "required": ["verdict", "reason"],
+    "required": ["verdict", "reason", "quote"],
     "additionalProperties": False,
 }
 
@@ -117,6 +128,16 @@ class AnswerGrade:
     verdict: Verdict
     reason: str
     missing_mentions: list[str]
+    #: Verbatim text the grader cited as evidence — empty for "correct".
+    quote: str = ""
+    #: False when `quote` does not actually appear in the graded answer: the
+    #: grader cited evidence for its own verdict that it never wrote. Found
+    #: for real once — an OpenRouter/Qwen3-Coder grade of "wrong" whose quote
+    #: claimed an ordering the answer did not contain — which is exactly what
+    #: this field exists to catch. `grade_answer` re-grades once when this is
+    #: false, so a saved result with `grounded=False` is the harness's second
+    #: attempt still not finding its own cited text — worth a manual look.
+    grounded: bool = True
 
     @property
     def is_correct(self) -> bool:
@@ -127,6 +148,47 @@ def check_mentions(answer: str, must_mention: list[str]) -> list[str]:
     """Required identifiers absent from the answer, matched case-insensitively."""
     lowered = answer.lower()
     return [item for item in must_mention if item.lower() not in lowered]
+
+
+def _is_grounded(quote: str, answer: str) -> bool:
+    """Whether the grader's cited evidence actually appears in the graded text.
+
+    Whitespace and case are normalized — a model may reflow a quote across
+    lines or change capitalization without changing what it is pointing at —
+    but beyond that this is a strict substring check. There is no "close
+    enough" when the claim is "the answer says X": either it does or it does
+    not, and grading is exactly the place a fuzzy match would hide the gap.
+    """
+    if not quote.strip():
+        return True
+    normalize = lambda text: " ".join(text.lower().split())
+    return normalize(quote) in normalize(answer)
+
+
+def _call_grader(
+    provider: LLMProvider,
+    question: str,
+    reference_answer: str,
+    actual_answer: str,
+    usage: Usage | None,
+    extra: str = "",
+) -> tuple[str, str, str, bool]:
+    prompt = (
+        f"Question:\n{question}\n\n"
+        f"Reference answer:\n{reference_answer}\n\n"
+        f"Answer to grade:\n{actual_answer}\n\n"
+        f"{extra}Grade the answer."
+    )
+    payload, response = provider.generate_json(
+        prompt,
+        _GRADE_SCHEMA,
+        system=_GRADER_SYSTEM,
+        max_tokens=GRADER_MAX_TOKENS,
+    )
+    if usage is not None:
+        usage.record("grade", response)
+    quote = payload.get("quote", "")
+    return payload["verdict"], payload.get("reason", ""), quote, _is_grounded(quote, actual_answer)
 
 
 def grade_answer(
@@ -143,25 +205,29 @@ def grade_answer(
     if not actual_answer.strip():
         return AnswerGrade("wrong", "Empty answer.", missing)
 
-    prompt = (
-        f"Question:\n{question}\n\n"
-        f"Reference answer:\n{reference_answer}\n\n"
-        f"Answer to grade:\n{actual_answer}\n\n"
-        f"Grade the answer."
-    )
     try:
-        payload, response = provider.generate_json(
-            prompt,
-            _GRADE_SCHEMA,
-            system=_GRADER_SYSTEM,
-            max_tokens=GRADER_MAX_TOKENS,
+        verdict, reason, quote, grounded = _call_grader(
+            provider, question, reference_answer, actual_answer, usage
         )
+
+        # A non-"correct" verdict whose cited evidence is not in the text it
+        # graded is a hallucinated justification, not a real finding — found
+        # by hand once (see docs/EVAL.md), reproduced here as a check rather
+        # than trusted silently. Re-grade once, naming the mismatch, instead
+        # of either trusting it or discarding the grade outright.
+        if verdict != "correct" and not grounded:
+            retry_note = (
+                f'Your previous verdict was "{verdict}", citing "{quote}" as '
+                "evidence, but that text does not appear anywhere in the "
+                "answer below. Re-read it carefully and grade again.\n\n"
+            )
+            verdict, reason, quote, grounded = _call_grader(
+                provider, question, reference_answer, actual_answer, usage, extra=retry_note
+            )
     except Exception as exc:  # noqa: BLE001
         # Any provider failure — a rate limit, a malformed response, a network
         # blip — must degrade this one grade, never end a run that may already
         # represent an hour of paid calls.
         return AnswerGrade("wrong", f"Grader failed: {exc}", missing)
 
-    if usage is not None:
-        usage.record("grade", response)
-    return AnswerGrade(payload["verdict"], payload.get("reason", ""), missing)
+    return AnswerGrade(verdict, reason, missing, quote=quote, grounded=grounded)

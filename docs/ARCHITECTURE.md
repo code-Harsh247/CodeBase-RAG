@@ -159,13 +159,17 @@ grader and rubric. If the systems ran on different models a score gap could
 reflect model capability rather than retrieval strategy, and the comparison
 would answer a question nobody asked.
 
-**Ground truth** (`evaluation/questions/`): 22 Q&A pairs written by reading the
-repository and confirming each fact against the source — never by running a
-system and recording what it said, which would measure self-consistency rather
-than correctness. Questions span structural (one relationship lookup),
-multi-hop (a name must be found before the real question can be asked), and
-conceptual (behaviour described, no identifier given) so the set does not
-flatter a single retrieval mode.
+**Ground truth** (`evaluation/questions/`): 22 Q&A pairs per repository — two
+repositories now, `psf/requests` and `pallets/click`, chosen to be
+structurally different so a result holding on both is evidence of
+generalizing rather than a number tuned to one codebase — written by reading
+the repository and confirming each fact against the source at a pinned
+commit, never by running a system and recording what it said, which would
+measure self-consistency rather than correctness. Questions span structural
+(one relationship lookup), multi-hop (a name must be found before the real
+question can be asked), and conceptual (behaviour described, no identifier
+given) so the set does not flatter a single retrieval mode. Numbers and full
+methodology: [docs/EVAL.md](EVAL.md).
 
 **Baseline** (`evaluation/baseline.py`): fixed 40-line chunks with overlap,
 embedded with the *same* model as the graph system, top-k retrieval, same
@@ -184,6 +188,13 @@ was handicapped.
 * *Answer correctness* — LLM-graded against the reference answer, three-way
   (correct / partial / wrong). Separate from retrieval because a system can find
   the right code and still answer badly, and that gap is the interesting part.
+  Every non-"correct" verdict must cite a verbatim quote from the graded
+  answer, checked programmatically against that text; a quote that does not
+  actually appear triggers one automatic re-grade rather than being trusted,
+  and a verdict still ungrounded after that is flagged in the run's report.
+  This exists because it caught a real grader hallucination — a "wrong"
+  verdict justified by claiming an answer had two items in the opposite order
+  from what it actually said.
 
 **Two shapes of question.** Some have one answer that several locations evidence
 equally well ("what does X call" — either X's body or the callee's definition);

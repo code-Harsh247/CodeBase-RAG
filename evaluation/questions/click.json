@@ -1,0 +1,203 @@
+{
+  "repo_id": "pallets/click",
+  "source_commit": "68e7ea7228ca",
+  "notes": "Second repo for the eval, chosen to be structurally different from psf/requests: a decorator-heavy CLI framework with a deep class hierarchy (Command/Group/Parameter/ParamType), versus requests' flatter, function-call-heavy HTTP client. Same process as the requests set: every answer was written by reading src/click directly at the pinned commit and confirming it against the source, not by running either system. Same accept_any convention: a question answerable either by the call site or by the callee's own definition gets both locations and accept_any=true; an enumeration question lists every location and every one counts.",
+  "questions": [
+    {
+      "id": "click-s01",
+      "question": "Which classes inherit directly from UsageError?",
+      "category": "structural",
+      "locations": [
+        "src/click/exceptions.py:114",
+        "src/click/exceptions.py:232",
+        "src/click/exceptions.py:268",
+        "src/click/exceptions.py:304",
+        "src/click/exceptions.py:323",
+        "src/click/exceptions.py:332"
+      ],
+      "answer": "Six classes list UsageError as a direct base, all in src/click/exceptions.py: BadParameter, NoSuchOption, NoSuchCommand, BadOptionUsage, BadArgumentUsage and NoArgsIsHelpError.",
+      "must_mention": ["BadParameter", "NoSuchOption", "NoSuchCommand"],
+      "notes": "MissingParameter inherits from BadParameter, not directly from UsageError, so it is deliberately excluded."
+    },
+    {
+      "id": "click-s02",
+      "question": "Which classes inherit directly from ClickException?",
+      "category": "structural",
+      "locations": ["src/click/exceptions.py:68", "src/click/exceptions.py:342"],
+      "answer": "Two classes: UsageError and FileError.",
+      "must_mention": ["UsageError", "FileError"]
+    },
+    {
+      "id": "click-s03",
+      "question": "What class does Group inherit from?",
+      "category": "structural",
+      "locations": ["src/click/core.py:1649"],
+      "answer": "Group inherits from Command.",
+      "must_mention": ["Command"],
+      "notes": "A single-answer check, not an enumeration — tests whether a system states this correctly rather than guessing a sibling class or Command's own base."
+    },
+    {
+      "id": "click-s04",
+      "question": "What does Context.exit do before it raises an exception?",
+      "category": "structural",
+      "locations": ["src/click/core.py:819", "src/click/core.py:689"],
+      "accept_any": true,
+      "answer": "It calls self.close() to run any registered cleanup callbacks and context managers, then raises Exit(code).",
+      "must_mention": ["close"],
+      "notes": "Evidenced equally by exit's own body (819) or close's definition (689)."
+    },
+    {
+      "id": "click-s05",
+      "question": "What calls Context.exit?",
+      "category": "structural",
+      "locations": [
+        "src/click/core.py:1562",
+        "src/click/decorators.py:548",
+        "src/click/decorators.py:590",
+        "src/click/decorators.py:616"
+      ],
+      "answer": "Command.main calls ctx.exit() after invoking the command in standalone mode (core.py:1562). It is also called from the callbacks of three eager options: version_option, custom_version_option and help_option in decorators.py.",
+      "must_mention": ["main"]
+    },
+    {
+      "id": "click-s06",
+      "question": "Which classes inherit directly from Parameter?",
+      "category": "structural",
+      "locations": ["src/click/core.py:2858", "src/click/core.py:3663"],
+      "answer": "Two classes: Option and Argument.",
+      "must_mention": ["Option", "Argument"]
+    },
+    {
+      "id": "click-s07",
+      "question": "Which class inherits directly from IntParamType?",
+      "category": "structural",
+      "locations": ["src/click/types.py:733"],
+      "answer": "IntRange.",
+      "must_mention": ["IntRange"],
+      "notes": "A one-answer trap similar in shape to a plain inheritance check: an ungrounded system can plausibly guess a different numeric type instead of checking."
+    },
+    {
+      "id": "click-s08",
+      "question": "What does UsageError.show call to write the error message out?",
+      "category": "structural",
+      "locations": ["src/click/exceptions.py:87", "src/click/utils.py:252"],
+      "accept_any": true,
+      "answer": "It calls echo(), writing the usage string, an optional \"try --help\" hint, and the error message to stderr.",
+      "must_mention": ["echo"]
+    },
+    {
+      "id": "click-m01",
+      "question": "Where is the function that returns the currently active click context defined, and what does it do if there isn't one?",
+      "category": "multi_hop",
+      "locations": ["src/click/globals.py:20"],
+      "answer": "get_current_context, in src/click/globals.py. It reads the top of a thread-local stack; if the stack is empty it raises RuntimeError (\"There is no active click context\"), unless called with silent=True, in which case it returns None.",
+      "must_mention": ["get_current_context", "RuntimeError"],
+      "notes": "Needs a name discovered first — the question describes behaviour, not an identifier. Lines 13 and 17 are @overload stubs for the same name; 20 is the real implementation."
+    },
+    {
+      "id": "click-m02",
+      "question": "What decorator makes a callback receive the current Context as its first argument, and how does it get hold of that context?",
+      "category": "multi_hop",
+      "locations": ["src/click/decorators.py:28"],
+      "answer": "pass_context. It wraps the function so that when called, it looks up the context itself via get_current_context() and passes it as the first argument, rather than the caller passing it explicitly.",
+      "must_mention": ["pass_context", "get_current_context"]
+    },
+    {
+      "id": "click-m03",
+      "question": "What method does a parameter type call to reject an invalid value, and what exception does it raise?",
+      "category": "multi_hop",
+      "locations": ["src/click/types.py:204"],
+      "answer": "ParamType.fail. It raises BadParameter with the given message.",
+      "must_mention": ["fail", "BadParameter"]
+    },
+    {
+      "id": "click-m04",
+      "question": "What method builds a command's full --help text, and what does it call to do the writing?",
+      "category": "multi_hop",
+      "locations": ["src/click/core.py:1233", "src/click/core.py:1258"],
+      "answer": "Command.get_help builds and returns the help text as a string. It does so by creating a formatter and calling self.format_help(ctx, formatter), which in turn calls format_usage, format_help_text, format_arguments, format_options and format_epilog in sequence.",
+      "must_mention": ["get_help", "format_help"]
+    },
+    {
+      "id": "click-m05",
+      "question": "What decorator turns a function into a Command, and what does it use as the command's help text if none is given explicitly?",
+      "category": "multi_hop",
+      "locations": ["src/click/decorators.py:168"],
+      "answer": "The command decorator (src/click/decorators.py). If no help text is passed in attrs, it falls back to the decorated function's own docstring (f.__doc__).",
+      "must_mention": ["command", "__doc__"],
+      "notes": "Lines 138, 144, 153 and 163 are @overload stubs for the same name; 168 is the real implementation."
+    },
+    {
+      "id": "click-m06",
+      "question": "What tracks where a parameter's value came from — the command line, an environment variable, a default, or a prompt — and where is it defined?",
+      "category": "multi_hop",
+      "locations": ["src/click/core.py:169"],
+      "answer": "ParameterSource, an IntEnum defined in src/click/core.py with members PROMPT, COMMANDLINE, ENVIRONMENT, DEFAULT_MAP and DEFAULT, ordered from most to least explicit so they can be compared.",
+      "must_mention": ["ParameterSource"]
+    },
+    {
+      "id": "click-c01",
+      "question": "How does click decide the process exit code when a ClickException reaches the top level unhandled?",
+      "category": "conceptual",
+      "locations": ["src/click/exceptions.py:39", "src/click/exceptions.py:76"],
+      "answer": "Each exception class carries its own exit_code class attribute. ClickException itself defaults to 1; UsageError overrides it to 2, so a usage error and a generic failure exit with different codes.",
+      "must_mention": ["exit_code"]
+    },
+    {
+      "id": "click-c02",
+      "question": "How does click report a usage error, like an unrecognised option, to the user?",
+      "category": "conceptual",
+      "locations": ["src/click/exceptions.py:87"],
+      "answer": "UsageError.show prints the command's usage line, a hint suggesting --help (when a help option exists), and an \"Error: ...\" line with the message, all written to stderr.",
+      "must_mention": ["usage", "stderr"]
+    },
+    {
+      "id": "click-c03",
+      "question": "How can a helper function access the current click context without it being passed in explicitly?",
+      "category": "conceptual",
+      "locations": ["src/click/globals.py:20"],
+      "answer": "By calling get_current_context(), which reads a thread-local stack that click pushes onto when a context is entered — an implicit alternative to the pass_context decorator.",
+      "must_mention": ["get_current_context"]
+    },
+    {
+      "id": "click-c04",
+      "question": "What happens when a required option or argument is missing from the input?",
+      "category": "conceptual",
+      "locations": ["src/click/core.py:2627"],
+      "answer": "Parameter.process_value checks whether the value is missing after type casting; if the parameter is required and the value is missing, it raises MissingParameter.",
+      "must_mention": ["MissingParameter"]
+    },
+    {
+      "id": "click-c05",
+      "question": "How does click order the possible sources of a parameter's value, from most to least explicit?",
+      "category": "conceptual",
+      "locations": ["src/click/core.py:169"],
+      "answer": "PROMPT, then COMMANDLINE, then ENVIRONMENT, then DEFAULT_MAP, then DEFAULT — the ParameterSource enum members are ordered so a lower value means a more explicit source, and can be compared directly.",
+      "must_mention": ["COMMANDLINE", "DEFAULT"]
+    },
+    {
+      "id": "click-c06",
+      "question": "How does click derive a command's name automatically from its function name when @click.command() is used without an explicit name?",
+      "category": "conceptual",
+      "locations": ["src/click/decorators.py:168"],
+      "answer": "It lowercases the function name and replaces underscores with dashes, then strips a trailing -command, -cmd, -group or -grp suffix — for example init_data_command becomes init-data.",
+      "must_mention": ["lower", "replace"]
+    },
+    {
+      "id": "click-c07",
+      "question": "How does a Choice parameter type validate that an input value is one of the allowed choices?",
+      "category": "conceptual",
+      "locations": ["src/click/types.py:443"],
+      "answer": "Choice.convert normalizes the input value and looks for a matching entry in its normalized choice mapping; if none matches, it calls self.fail with an invalid-choice message, which raises BadParameter.",
+      "must_mention": ["normalize", "fail"]
+    },
+    {
+      "id": "click-c08",
+      "question": "What does Command.main do differently when standalone_mode is False instead of the default True?",
+      "category": "conceptual",
+      "locations": ["src/click/core.py:1565", "src/click/core.py:1577"],
+      "answer": "In standalone mode, a ClickException is shown and the process exits via sys.exit with its exit code, and an Exit exception also calls sys.exit. With standalone_mode=False, a ClickException is re-raised instead of being printed and exiting, and an Exit's code is returned from the call instead of terminating the process — main() is then usable as a library call rather than a program entry point.",
+      "must_mention": ["standalone_mode", "sys.exit"]
+    }
+  ]
+}

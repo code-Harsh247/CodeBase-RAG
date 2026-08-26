@@ -160,6 +160,8 @@ The multi-hop agent is where the thesis is actually earned: 95% accuracy, zero o
 
 **The honest cost caveat:** multi-hop uses ~3.4x the baseline's tokens and ~4.7x single-shot's. The accuracy gain is large enough to justify it here, but "is the extra retrieval worth it" is a real tradeoff this project can name a number for, not a hand-wave.
 
+**Superseded after Phase 5.** The numbers above are this phase's original run, kept as the historical record. The eval was later extended to a second, structurally different repository (`pallets/click`) to test whether the result generalizes rather than being tuned to `requests`, and the grader gained a groundedness check after it was caught citing evidence it never wrote (see docs/EVAL.md's methodology section). Current numbers, methodology and both repos: [docs/EVAL.md](EVAL.md).
+
 **A methodology note on precision:** all three systems show low retrieval precision (0.15–0.34). This is partly a real signal (naive RAG's 40-line chunks are mostly padding around the answer) and partly a measurement artifact — the multi-hop agent deliberately expands each hit into its graph neighbourhood (callers/callees), which is retrieved context beyond the ground-truth location and is scored as imprecision even when it helped the model reason. Recall and accuracy are the metrics this project's thesis rests on; precision is reported for honesty, not as a claim being made.
 
 **What would strengthen this further** (not done, listed plainly): a second eval repo to check the result isn't `psf/requests`-specific, and human-spot-checking a sample of the LLM grader's verdicts against the raw answers to confirm the grader itself isn't systematically biased toward one system's writing style.

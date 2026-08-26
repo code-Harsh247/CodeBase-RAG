@@ -117,6 +117,21 @@ def disagreements(run: EvalRun, systems: tuple[str, ...]) -> str:
     return "\n".join(lines) if lines else "  (none — every system agreed on every question)"
 
 
+def flagged_for_review(run: EvalRun) -> str:
+    """Grades where the grader's own cited evidence, re-checked once, still
+    was not found in the text it graded — see AnswerGrade.grounded. A
+    non-"correct" verdict here may be a hallucinated justification rather
+    than a real finding, and is worth reading by hand before trusting it."""
+    flagged = [item for item in run.results if not item.grounded and item.verdict != "correct"]
+    if not flagged:
+        return "  (none — every non-correct verdict cited text that was actually there)"
+    return "\n".join(
+        f"  {item.question_id} [{LABELS.get(item.system, item.system)}] {item.verdict}: "
+        f"{item.grade_reason}"
+        for item in flagged
+    )
+
+
 def render(run: EvalRun, systems: tuple[str, ...]) -> str:
     parts = [
         f"model: {run.model}",
@@ -129,5 +144,8 @@ def render(run: EvalRun, systems: tuple[str, ...]) -> str:
         "",
         "WHERE THE SYSTEMS DISAGREED",
         disagreements(run, systems),
+        "",
+        "FLAGGED FOR REVIEW (ungrounded grade, even after a re-grade)",
+        flagged_for_review(run),
     ]
     return "\n".join(parts)

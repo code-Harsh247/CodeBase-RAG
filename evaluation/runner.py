@@ -53,6 +53,10 @@ class QuestionResult:
     llm_calls: int
     seconds: float
     error: str = ""
+    #: False means the grader's own cited evidence wasn't found in the answer
+    #: on its second attempt either — see AnswerGrade.grounded. Worth a
+    #: manual look; the automated grade may still be wrong.
+    grounded: bool = True
 
     @property
     def correct(self) -> bool:
@@ -207,6 +211,7 @@ def run_eval(
                     llm_calls=usage.calls,
                     seconds=round(elapsed, 1),
                     error=error,
+                    grounded=grade.grounded,
                 )
             )
             logger.info(
