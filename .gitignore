@@ -24,3 +24,5 @@ ui/tsconfig.tsbuildinfo
 
 # App state (users, sessions, ownership)
 .data/
+.env.*
+!.env.example
