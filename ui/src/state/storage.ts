@@ -1,6 +1,10 @@
 import { emptyStore, type Thread, type ThreadStore } from "./types";
 
-const THREADS_KEY = "codegraph.threads.v1";
+/**
+ * History is kept per GitHub login, so two accounts on one browser never see
+ * each other's conversations.
+ */
+const threadsKey = (login: string) => `codegraph.threads.v1:${login.toLowerCase()}`;
 const UI_KEY = "codegraph.ui.v1";
 
 /** A long Cypher query is unbounded; the rest of a hop is already small. */
@@ -58,9 +62,9 @@ function withHistoryFields(threads: Record<string, Thread>): Record<string, Thre
   return filled;
 }
 
-export function loadStore(): ThreadStore {
+export function loadStore(login: string): ThreadStore {
   try {
-    const raw = localStorage.getItem(THREADS_KEY);
+    const raw = localStorage.getItem(threadsKey(login));
     if (!raw) return emptyStore();
     const parsed = JSON.parse(raw) as ThreadStore;
     // A version mismatch is not worth migrating for a local dev tool; starting
@@ -75,10 +79,10 @@ export function loadStore(): ThreadStore {
   }
 }
 
-export function saveStore(store: ThreadStore): void {
+export function saveStore(store: ThreadStore, login: string): void {
   const trimmed = trim(store);
   try {
-    localStorage.setItem(THREADS_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(threadsKey(login), JSON.stringify(trimmed));
   } catch {
     // Most likely the quota. Drop the oldest thread and try once more; if that
     // still fails, give up silently rather than throwing into React.
@@ -89,7 +93,7 @@ export function saveStore(store: ThreadStore): void {
     const threads: Record<string, Thread> = {};
     for (const thread of remaining) threads[thread.id] = thread;
     try {
-      localStorage.setItem(THREADS_KEY, JSON.stringify({ ...trimmed, threads }));
+      localStorage.setItem(threadsKey(login), JSON.stringify({ ...trimmed, threads }));
     } catch {
       /* persistence unavailable this session */
     }

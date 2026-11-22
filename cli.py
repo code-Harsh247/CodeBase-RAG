@@ -13,6 +13,7 @@ import sys
 from dotenv import load_dotenv
 
 import agent.cli
+import api.admin_cli
 import evaluation.cli
 import ingestion.cli
 
@@ -38,6 +39,7 @@ def build_parser() -> tuple[argparse.ArgumentParser, dict]:
     handlers.update(ingestion.cli.register(subparsers))
     handlers.update(agent.cli.register(subparsers))
     handlers.update(evaluation.cli.register(subparsers))
+    handlers.update(api.admin_cli.register(subparsers))
     return parser, handlers
 
 

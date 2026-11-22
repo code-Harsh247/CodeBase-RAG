@@ -16,6 +16,9 @@ def register(subparsers) -> dict:
     ingest_parser.add_argument("source", help="GitHub URL or path to a local checkout")
     ingest_parser.add_argument("--include-tests", action="store_true", help="index test directories")
     ingest_parser.add_argument("--refresh", action="store_true", help="re-clone if already present")
+    ingest_parser.add_argument(
+        "--public", action="store_true", help="show it to every user of the web app"
+    )
 
     cypher_parser = subparsers.add_parser("cypher", help="run a read-only Cypher query")
     cypher_parser.add_argument("query")
@@ -30,8 +33,39 @@ def register(subparsers) -> dict:
 def _cmd_ingest(args) -> int:
     with Neo4jClient.from_env() as client:
         client.verify_connectivity()
-        print(ingest(args.source, client, args.include_tests, args.refresh).render())
+        summary = ingest(args.source, client, args.include_tests, args.refresh)
+        print(summary.render())
+    _register(summary, public=args.public)
     return 0
+
+
+def _register(summary, public: bool) -> None:
+    """Record a CLI-ingested repository so the web app can serve it.
+
+    This is how demo repositories are seeded: ingest from the shell with
+    ``--public`` and every signed-in user sees them.
+    """
+    from api.settings import Settings
+    from api.store import AppStore
+    from ingestion.repo import validate_repo_id
+
+    try:
+        validate_repo_id(summary.repo_id)
+    except ValueError:
+        print(f"(not registered with the web app: {summary.repo_id!r} is not owner/name)")
+        return
+    store = AppStore(Settings.from_env().app_db_path)
+    try:
+        store.mark_ready(
+            summary.repo_id,
+            commit_sha=summary.commit,
+            files=summary.files_parsed,
+            nodes=sum(summary.node_counts.values()),
+            public=True if public else None,
+        )
+    finally:
+        store.close()
+    print(f"registered with the web app{' as public' if public else ''}")
 
 
 def _cmd_cypher(args) -> int:

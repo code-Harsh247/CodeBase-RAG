@@ -787,3 +787,123 @@ body {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------- sign-in */
+
+.signin {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+
+.signin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(440px, 100%);
+  text-align: center;
+  animation: rise 240ms ease both;
+}
+
+.signin-card h1 {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+}
+
+.signin-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.signin-button:hover {
+  background: #fff;
+}
+
+.signin-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.signin-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+.signin-error {
+  margin: 4px 0 0;
+  color: var(--amber);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------ sidebar footer */
+
+.sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+}
+
+.sidebar-foot .sidebar-error {
+  margin-top: 0;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 6px 2px;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+.account-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--panel-2);
+}
+
+.account-login {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.account-signout {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.account-signout:hover,
+.account-signout:focus-visible {
+  color: var(--text);
+  background: var(--panel-2);
+}

@@ -1,7 +1,14 @@
+import { notifyUnauthorized } from "./auth";
+
 export interface Repo {
   repo_id: string;
   nodes: number;
+  files: number;
   has_source: boolean;
+  /** Visible to every user; only admins can remove it. */
+  public: boolean;
+  /** In this user's projects (they indexed or added it). */
+  owned: boolean;
 }
 
 export interface HopEvent {
@@ -28,6 +35,8 @@ export interface AnswerEvent {
 
 export interface ErrorEvent {
   type: "error";
+  /** Stable machine-readable reason, e.g. "repo_too_large". */
+  code?: string;
   message: string;
 }
 
@@ -47,6 +56,8 @@ export interface DoneEvent {
   edges: number;
   embedded: number;
   seconds: number;
+  /** Someone had already indexed it; it was just added to this user's projects. */
+  cached?: boolean;
 }
 
 export type IngestEvent = ProgressEvent | DoneEvent | ErrorEvent;
@@ -65,6 +76,25 @@ export interface HistoryTurn {
  * front of the next question. A plain request/response, not a stream — the
  * result is a few sentences.
  */
+/**
+ * Throw a readable error for a failed response.
+ *
+ * A 401 also tells the app the session is gone, so it can return to the
+ * sign-in screen instead of showing an error on every panel.
+ */
+async function ensureOk(response: Response, what: string): Promise<void> {
+  if (response.ok) return;
+  if (response.status === 401) notifyUnauthorized();
+  let message = "";
+  try {
+    const detail = (await response.json())?.detail;
+    message = typeof detail === "string" ? detail : (detail?.message ?? "");
+  } catch {
+    /* not JSON */
+  }
+  throw new Error(message || `${what} (${response.status})`);
+}
+
 export async function summarizeHistory(body: {
   prior_summary: string;
   turns: HistoryTurn[];
@@ -74,13 +104,13 @@ export async function summarizeHistory(body: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`Could not summarize history (${response.status})`);
+  await ensureOk(response, "Could not summarize history");
   return (await response.json()).summary;
 }
 
 export async function fetchRepos(): Promise<Repo[]> {
   const response = await fetch("/api/repos");
-  if (!response.ok) throw new Error(`Could not load repositories (${response.status})`);
+  await ensureOk(response, "Could not load repositories");
   return (await response.json()).repos;
 }
 
@@ -103,9 +133,8 @@ async function streamPost<T>(
     signal,
   });
 
-  if (!response.ok || !response.body) {
-    throw new Error(`Request failed (${response.status})`);
-  }
+  await ensureOk(response, "Request failed");
+  if (!response.body) throw new Error("Request failed (empty response)");
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -134,16 +163,19 @@ async function streamPost<T>(
 }
 
 /**
- * Permanently remove a repository: its graph nodes, embeddings and clone.
+ * Remove a repository from this user's projects.
  *
- * Deleting only local history would not work — the repository reappears from
- * /api/repos on the next refresh — so this removes the thing itself.
+ * The server drops this user's claim, and deletes the data itself only once
+ * nobody else has it (admins delete outright). Deleting only local history
+ * would not work — the repository reappears from /api/repos on refresh.
  */
 export async function deleteRepo(repoId: string): Promise<void> {
-  const response = await fetch(`/api/repos/${repoId}`, { method: "DELETE" });
-  if (!response.ok) {
-    throw new Error(`Could not delete ${repoId} (${response.status})`);
-  }
+  const path = repoId.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`/api/repos/${path}`, { method: "DELETE" });
+  // Already not in this user's projects (e.g. a stale local thread): the
+  // outcome they asked for, so not an error.
+  if (response.status === 404) return;
+  await ensureOk(response, `Could not remove ${repoId}`);
 }
 
 /**

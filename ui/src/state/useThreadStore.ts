@@ -7,18 +7,19 @@ import { newId, type Thread } from "./types";
 
 const PERSIST_DEBOUNCE_MS = 400;
 
-export function useThreadStore() {
+export function useThreadStore(login: string) {
   // Read synchronously in the initializer, not an effect: the first paint
-  // already knows whether to show the hero or a restored thread.
-  const [store, dispatch] = useReducer(threadReducer, undefined, loadStore);
+  // already knows whether to show the hero or a restored thread. The caller
+  // remounts this hook (via a `key`) when the signed-in login changes.
+  const [store, dispatch] = useReducer(threadReducer, login, loadStore);
 
   // One controller per thread, so runs in different threads stay independent.
   const runs = useRef(new Map<string, AbortController>());
 
   useEffect(() => {
-    const timer = setTimeout(() => saveStore(store), PERSIST_DEBOUNCE_MS);
+    const timer = setTimeout(() => saveStore(store, login), PERSIST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [store]);
+  }, [store, login]);
 
   // A debounce loses the last write if the tab closes first; visibilitychange
   // is more reliable than beforeunload for this.
@@ -26,11 +27,11 @@ export function useThreadStore() {
   latest.current = store;
   useEffect(() => {
     const flush = () => {
-      if (document.visibilityState === "hidden") saveStore(latest.current);
+      if (document.visibilityState === "hidden") saveStore(latest.current, login);
     };
     document.addEventListener("visibilitychange", flush);
     return () => document.removeEventListener("visibilitychange", flush);
-  }, []);
+  }, [login]);
 
   useEffect(() => {
     const inFlight = runs.current;

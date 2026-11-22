@@ -43,7 +43,15 @@ export function IngestMessage({ message }: { message: IngestMsg }) {
         })}
       </ol>
 
-      {message.summary && (
+      {message.summary?.cached && (
+        <p className="ingest-done">
+          <strong>{message.summary.repo_id}</strong> was already indexed, so it was added
+          to your projects straight away — {message.summary.files} files,{" "}
+          {message.summary.nodes.toLocaleString()} nodes.
+        </p>
+      )}
+
+      {message.summary && !message.summary.cached && (
         <p className="ingest-done">
           Indexed <strong>{message.summary.repo_id}</strong> in{" "}
           {message.summary.seconds}s — {message.summary.files} files,{" "}

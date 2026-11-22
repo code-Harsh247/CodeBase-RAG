@@ -1,3 +1,4 @@
+import type { Me } from "../auth";
 import type { Thread } from "../state/types";
 
 export interface SidebarRow {
@@ -8,6 +9,8 @@ export interface SidebarRow {
   /** Indexed on the server. False means the graph no longer has it. */
   available: boolean;
   running: boolean;
+  /** False for public demo repositories, which only an admin can remove. */
+  removable: boolean;
 }
 
 /**
@@ -33,6 +36,8 @@ export function Sidebar({
   activeRepoId,
   reposError,
   actionError,
+  me,
+  onSignOut,
   onSelect,
   onNew,
   onDelete,
@@ -43,6 +48,8 @@ export function Sidebar({
   reposError: string;
   /** A failed action, shown verbatim — it names the repo and the cause. */
   actionError: string;
+  me: Me;
+  onSignOut: () => void;
   onSelect: (row: SidebarRow) => void;
   onNew: () => void;
   onDelete: (row: SidebarRow) => void;
@@ -88,17 +95,19 @@ export function Sidebar({
                 {!row.available && <span className="badge subtle">not indexed</span>}
               </button>
 
-              <button
-                type="button"
-                className="project-delete"
-                // Deleting drops the graph, the embeddings and the clone, so it
-                // is confirmed by the caller rather than fired on one click.
-                onClick={() => onDelete(row)}
-                title={`Delete ${row.label}`}
-                aria-label={`Delete ${row.label}`}
-              >
-                ×
-              </button>
+              {row.removable && (
+                <button
+                  type="button"
+                  className="project-delete"
+                  // Removing can delete the index itself, so it is confirmed
+                  // by the caller rather than fired on one click.
+                  onClick={() => onDelete(row)}
+                  title={`Remove ${row.label}`}
+                  aria-label={`Remove ${row.label}`}
+                >
+                  ×
+                </button>
+              )}
             </div>
           );
         })}
@@ -106,13 +115,30 @@ export function Sidebar({
         {!rows.length && <p className="muted empty-hint">No projects indexed yet.</p>}
       </nav>
 
-      {actionError && <p className="sidebar-error">{actionError}</p>}
+      <div className="sidebar-foot">
+        {actionError && <p className="sidebar-error">{actionError}</p>}
 
-      {reposError && (
-        <p className="sidebar-error muted">
-          Could not reach the server; showing local history only.
-        </p>
-      )}
+        {reposError && (
+          <p className="sidebar-error muted">
+            Could not reach the server; showing local history only.
+          </p>
+        )}
+
+        <div className="account">
+          {me.avatar_url ? (
+            <img className="account-avatar" src={me.avatar_url} alt="" />
+          ) : (
+            <span className="account-avatar account-avatar--blank" />
+          )}
+          <span className="account-login" title={me.login}>
+            {me.login}
+            {me.is_admin && <span className="badge subtle">admin</span>}
+          </span>
+          <button type="button" className="account-signout" onClick={onSignOut}>
+            Sign out
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }

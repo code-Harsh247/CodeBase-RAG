@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api import server
@@ -77,6 +76,8 @@ def test_trimming_keeps_the_most_recent_turns():
 
 
 # ----------------------------------------------------------------- hardening
+# Endpoint-level access and error tests live in test_api.py.
+
 
 @pytest.mark.parametrize("repo_id", ["../../etc", "owner/..", "a/b/c", "owner"])
 def test_query_request_rejects_path_like_repo_ids(repo_id):
@@ -89,20 +90,6 @@ def test_query_request_rejects_unknown_modes():
         QueryRequest(repo_id="owner/repo", question="hi", mode="drop_everything")
 
 
-def test_query_endpoint_returns_422_for_a_traversal_repo_id():
-    response = TestClient(server.app).post(
-        "/api/query", json={"repo_id": "../../etc", "question": "hi"}
-    )
-    assert response.status_code == 422
-
-
-def test_ingest_endpoint_rejects_non_github_urls_before_streaming():
-    response = TestClient(server.app).post(
-        "/api/ingest", json={"url": "file:///etc/passwd"}
-    )
-    assert response.status_code == 400
-
-
 def _events(stream) -> list[dict]:
     return [json.loads(chunk.removeprefix("data: ").strip()) for chunk in stream]
 
@@ -112,68 +99,9 @@ def test_stream_errors_never_carry_exception_text(monkeypatch):
         raise RuntimeError("password=hunter2 at /home/ubuntu/apps/secret")
 
     monkeypatch.setattr(server, "_client", broken_client)
-    events = _events(server._stream_answer(_request()))
+    events = _events(server._stream_answer(_request(), "owner/repo"))
 
     assert events[-1]["type"] == "error"
     assert events[-1]["code"] == "internal"
     assert "hunter2" not in json.dumps(events)
     assert "/home" not in json.dumps(events)
-
-
-def test_ingest_limit_errors_keep_their_code(monkeypatch):
-    from ingestion.limits import IngestLimitError
-
-    def too_big(*args, **kwargs):
-        raise IngestLimitError("repo_too_large", "The repository has too many files.")
-
-    class _Client:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return None
-
-    monkeypatch.setattr(server, "_client", _Client)
-    monkeypatch.setattr(server, "ingest", too_big)
-    request = server.IngestRequest(url="https://github.com/owner/repo")
-    events = _events(server._stream_ingest(request, "owner", "repo"))
-
-    assert events[-1] == {
-        "type": "error",
-        "code": "repo_too_large",
-        "message": "The repository has too many files.",
-    }
-
-
-def test_ingest_never_indexes_a_local_path(monkeypatch):
-    seen = {}
-
-    def fake_ingest(source, client, **kwargs):
-        seen.update(kwargs, source=source)
-        raise RuntimeError("stop")
-
-    class _Client:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return None
-
-    monkeypatch.setattr(server, "_client", _Client)
-    monkeypatch.setattr(server, "ingest", fake_ingest)
-    request = server.IngestRequest(url="https://github.com/owner/repo")
-    list(server._stream_ingest(request, "owner", "repo"))
-
-    assert seen["allow_local"] is False
-    assert seen["source"] == "https://github.com/owner/repo"
-
-
-def test_delete_rejects_traversal():
-    # The HTTP client normalises "owner/.." away before it is sent, so call the
-    # handler directly with the values a hand-crafted request could carry.
-    from fastapi import HTTPException
-
-    for owner, name in [("owner", ".."), ("..", "etc"), ("owner", "."), ("-x", "y")]:
-        with pytest.raises(HTTPException) as caught:
-            server.delete_repo(owner, name)
-        assert caught.value.status_code == 400

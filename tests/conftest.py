@@ -146,3 +146,78 @@ def sample_graph() -> Graph:
     modules, failures = parse_repository(repo)
     assert failures == 0
     return Graph(modules, Resolver(modules).resolve())
+
+
+# ------------------------------------------------------------ web app fixtures
+
+
+class FakeGraphServer:
+    """Stands in for Neo4j behind the API: tracks what was deleted."""
+
+    def __init__(self, repos: dict[str, int] | None = None) -> None:
+        self.repos = dict(repos or {})
+        self.deleted: list[str] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    def run(self, query, **params):
+        return [{"repo_id": repo_id, "nodes": nodes} for repo_id, nodes in self.repos.items()]
+
+    def delete_repo(self, repo_id):
+        self.deleted.append(repo_id)
+        return self.repos.pop(repo_id, 0)
+
+
+class _NoVectors:
+    def drop(self, repo_id):
+        return None
+
+
+class WebApp:
+    """A TestClient over a fresh app with its own database and clone root."""
+
+    def __init__(self, client, app, graph: FakeGraphServer) -> None:
+        self.client = client
+        self.app = app
+        self.graph = graph
+
+    @property
+    def store(self):
+        return self.app.state.store
+
+    def login_as(self, login: str, github_id: int | None = None):
+        github_id = github_id if github_id is not None else abs(hash(login)) % 10_000_000 + 1
+        user = self.store.upsert_user(github_id, login)
+        token = self.store.create_session(user.github_id, ttl_days=1)
+        self.client.cookies.set("cg_session", token)
+        return user
+
+    def logout_locally(self) -> None:
+        self.client.cookies.clear()
+
+
+@pytest.fixture
+def web(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api import maintenance, server
+    from api.settings import Settings
+
+    monkeypatch.setenv("REPOS_DIR", str(tmp_path / "repos"))
+    graph = FakeGraphServer()
+    monkeypatch.setattr(server, "_client", lambda: graph)
+    monkeypatch.setattr(maintenance, "VectorStore", _NoVectors)
+
+    settings = Settings(
+        app_db_path=tmp_path / "app.db",
+        github_client_id="client-id",
+        github_client_secret="client-secret",
+        admin_logins=frozenset({"admin"}),
+    )
+    app = server.create_app(settings)
+    with TestClient(app) as client:
+        yield WebApp(client, app, graph)

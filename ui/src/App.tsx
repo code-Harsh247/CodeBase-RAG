@@ -1,15 +1,57 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteRepo, fetchRepos, type Repo } from "./api";
+import { fetchMe, logout, takeAuthError, UNAUTHORIZED_EVENT, type Me } from "./auth";
 import { Composer } from "./components/Composer";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Sidebar, type SidebarRow } from "./components/Sidebar";
+import { SignIn } from "./components/SignIn";
 import { Thread } from "./components/Thread";
 import { TracePanel } from "./components/TracePanel";
 import { newId } from "./state/types";
 import { useThreadStore } from "./state/useThreadStore";
 
+/**
+ * Signed out: the sign-in screen. Signed in: the workspace, keyed by login so
+ * switching accounts remounts it with that account's own history.
+ */
 export default function App() {
-  const { store, dispatch, startIngest, ask } = useThreadStore();
+  // undefined while the first check is in flight, so the sign-in screen does
+  // not flash for a visitor who is already signed in.
+  const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const [authError, setAuthError] = useState(takeAuthError);
+
+  useEffect(() => {
+    fetchMe()
+      .then(setMe)
+      .catch(() => {
+        setAuthError("Could not reach the server. Please try again shortly.");
+        setMe(null);
+      });
+  }, []);
+
+  // Any API call that gets a 401 (expired session, ban) lands here.
+  useEffect(() => {
+    const signedOut = () => setMe(null);
+    window.addEventListener(UNAUTHORIZED_EVENT, signedOut);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, signedOut);
+  }, []);
+
+  if (me === undefined) return <div className="signin" />;
+  if (me === null) return <SignIn error={authError} />;
+  return (
+    <Workspace
+      key={me.login}
+      me={me}
+      onSignOut={async () => {
+        await logout().catch(() => undefined);
+        setMe(null);
+      }}
+    />
+  );
+}
+
+function Workspace({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
+  const { store, dispatch, startIngest, ask } = useThreadStore(me.login);
   const [repos, setRepos] = useState<Repo[]>([]);
   const [reposError, setReposError] = useState("");
   const [traceMessageId, setTraceMessageId] = useState<string | null>(null);
@@ -44,6 +86,13 @@ export default function App() {
         (message) => message.kind !== "user" && message.status === "running",
       )
     : false;
+
+  // A public demo repository stays visible to everyone whatever one user
+  // does, so offering to remove it would be a lie — only an admin can.
+  const canRemove = useCallback(
+    (repo: Repo | undefined) => !repo || !repo.public || me.is_admin,
+    [me.is_admin],
+  );
 
   // One row per project: local threads first, then server repos never opened
   // here. A thread whose repo has vanished from the graph is kept and marked,
@@ -88,6 +137,7 @@ export default function App() {
         // With no server list we cannot know; assume available rather than
         // marking every thread stale because Neo4j is down.
         available: reposError ? true : !thread.repoId || indexed.has(thread.repoId),
+        removable: canRemove(thread.repoId ? indexed.get(thread.repoId) : undefined),
         running: thread.messages.some(
           (message) => message.kind !== "user" && message.status === "running",
         ),
@@ -101,11 +151,12 @@ export default function App() {
         repoId: repo.repo_id,
         label: repo.repo_id,
         available: true,
+        removable: canRemove(repo),
         running: false,
       }));
 
     return [...fromThreads, ...fromServer];
-  }, [repos, store.threads, store.activeThreadId, reposError, removing]);
+  }, [repos, store.threads, store.activeThreadId, reposError, removing, canRemove]);
 
   function selectRow(row: SidebarRow) {
     setTraceMessageId(null);
@@ -215,6 +266,8 @@ export default function App() {
         activeRepoId={activeThread?.repoId ?? null}
         reposError={reposError}
         actionError={actionError}
+        me={me}
+        onSignOut={onSignOut}
         onSelect={selectRow}
         onDelete={setPendingDelete}
         onNew={() => {
@@ -260,8 +313,12 @@ export default function App() {
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title={`Delete ${doomedLabel}?`}
-        body={`This removes its graph, embeddings, cloned source and chat history. Re-adding it means indexing again.`}
+        title={me.is_admin ? `Delete ${doomedLabel}?` : `Remove ${doomedLabel}?`}
+        body={
+          me.is_admin
+            ? "This deletes its graph, embeddings and cloned source for every user, along with your chat history for it."
+            : "It is removed from your projects along with its chat history. Adding it again later may mean waiting for it to be indexed."
+        }
         onConfirm={() => pendingDelete && void removeProject(pendingDelete)}
         onCancel={() => setPendingDelete(null)}
       />

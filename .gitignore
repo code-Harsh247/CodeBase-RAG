@@ -21,3 +21,6 @@ ui/dist/
 .vscode/
 .idea/
 ui/tsconfig.tsbuildinfo
+
+# App state (users, sessions, ownership)
+.data/
