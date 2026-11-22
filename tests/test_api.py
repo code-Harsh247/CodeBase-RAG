@@ -112,8 +112,9 @@ def test_query_uses_the_canonical_repo_id(web, monkeypatch):
     _ready(web, "PSF/Requests", alice)
     seen = {}
 
-    def fake_stream(body, repo_id, provider, cancel, deadline):
+    def fake_stream(body, repo_id, provider, cancel, deadline, on_finish=None):
         seen["repo_id"] = repo_id
+        on_finish()
         yield server._event({"type": "answer", "answer": "ok", "locations": [], "usage": {}})
 
     monkeypatch.setattr(server, "_stream_answer", fake_stream)

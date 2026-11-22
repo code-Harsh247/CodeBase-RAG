@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import math
 import zlib
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 
+from api.limiter import RateLimiter, Rule, client_ip_key, parse_rules
 from api.settings import Settings
 from api.store import AppStore
 
@@ -79,3 +82,62 @@ def same_origin(request: Request) -> None:
 
 #: Route parameter type for "requires a signed-in user".
 User = Annotated[CurrentUser, Depends(current_user)]
+
+
+# ------------------------------------------------------------- rate limits
+
+#: bucket -> (per-user rules, per-IP rules, global rules), as Settings fields.
+_BUCKETS: dict[str, tuple[str | None, str | None, str | None]] = {
+    "query": ("rate_limit_query", "rate_limit_query_ip", None),
+    "summarize": ("rate_limit_summarize", "rate_limit_summarize_ip", None),
+    "ingest": ("rate_limit_ingest", "rate_limit_ingest_ip", "rate_limit_ingest_global"),
+    "add": ("rate_limit_add", "rate_limit_add_ip", None),
+    "login": (None, "rate_limit_login_ip", None),
+}
+
+
+@lru_cache(maxsize=64)
+def _rules(spec: str) -> tuple[Rule, ...]:
+    return parse_rules(spec)
+
+
+def _humanize(seconds: float) -> str:
+    if seconds < 90:
+        return f"{max(1, round(seconds))} seconds"
+    if seconds < 5_400:
+        return f"{round(seconds / 60)} minutes"
+    return f"{round(seconds / 3_600)} hours"
+
+
+def rate_limit_wait(request: Request, bucket: str, user: CurrentUser | None = None) -> float | None:
+    """Record a hit in ``bucket``; seconds to wait if over a limit, else None.
+
+    Admins are exempt: they seed demo repositories and debug in production.
+    """
+    if user is not None and user.is_admin:
+        return None
+    settings = get_settings(request)
+    user_field, ip_field, global_field = _BUCKETS[bucket]
+    host = request.client.host if request.client else None
+    checks = []
+    if user is not None and user_field:
+        checks.append((f"{bucket}:user:{user.github_id}", _rules(getattr(settings, user_field))))
+    if ip_field:
+        ip = client_ip_key(host, request.app.state.ip_secret)
+        checks.append((f"{bucket}:ip:{ip}", _rules(getattr(settings, ip_field))))
+    if global_field:
+        checks.append((f"{bucket}:global", _rules(getattr(settings, global_field))))
+    limiter: RateLimiter = request.app.state.limiter
+    return limiter.hit(checks)
+
+
+def enforce_rate_limit(request: Request, bucket: str, user: CurrentUser | None = None) -> None:
+    """Raise 429 ``rate_limited`` (with Retry-After) when ``bucket`` is over its limit."""
+    wait = rate_limit_wait(request, bucket, user)
+    if wait is not None:
+        raise api_error(
+            429,
+            "rate_limited",
+            f"Too many requests. Try again in {_humanize(wait)}.",
+            headers={"Retry-After": str(math.ceil(wait))},
+        )

@@ -35,6 +35,7 @@ const AUTH_ERRORS: Record<string, string> = {
   denied: "GitHub sign-in was cancelled.",
   github: "Could not reach GitHub to sign you in. Please try again.",
   banned: "This account has been suspended.",
+  rate_limited: "Too many sign-in attempts from this network. Please wait a while and try again.",
   unavailable: "Sign-in is not configured on this server.",
 };
 

@@ -92,6 +92,24 @@ class Settings:
     #: A question still running after this long is stopped.
     query_deadline_s: float = 180
 
+    # -- rate limits (see api/limiter.py) ----------------------------------
+    #: Keys the HMAC that turns client IPs into rate-limit keys. Random per
+    #: process outside production, where it only has to be stable per run.
+    app_secret: str = field(default="", repr=False)
+    max_concurrent_queries: int = 3
+    rate_limit_query: str = "10/hour;25/day"
+    rate_limit_query_ip: str = "30/hour;75/day"
+    rate_limit_summarize: str = "30/hour"
+    rate_limit_summarize_ip: str = "90/hour"
+    #: New repositories actually cloned and indexed.
+    rate_limit_ingest: str = "3/hour;6/day"
+    rate_limit_ingest_ip: str = "9/hour;18/day"
+    rate_limit_ingest_global: str = "30/day"
+    #: Adding a repository someone already indexed (no clone).
+    rate_limit_add: str = "20/hour"
+    rate_limit_add_ip: str = "60/hour"
+    rate_limit_login_ip: str = "20/hour"
+
     @property
     def production(self) -> bool:
         return self.app_env == "production"
@@ -159,12 +177,34 @@ class Settings:
             llm_price_input_per_m=prices_from_env()[0],
             llm_price_output_per_m=prices_from_env()[1],
             query_deadline_s=float(env("QUERY_DEADLINE_SECONDS") or 180),
+            app_secret=(env("APP_SECRET") or "").strip(),
+            max_concurrent_queries=int(env("MAX_CONCURRENT_QUERIES") or 3),
+            **{
+                name: env(name.upper()) or getattr(cls, name)
+                for name in (
+                    "rate_limit_query",
+                    "rate_limit_query_ip",
+                    "rate_limit_summarize",
+                    "rate_limit_summarize_ip",
+                    "rate_limit_ingest",
+                    "rate_limit_ingest_ip",
+                    "rate_limit_ingest_global",
+                    "rate_limit_add",
+                    "rate_limit_add_ip",
+                    "rate_limit_login_ip",
+                )
+            },
         )
         settings.check()
         return settings
 
     def check(self) -> None:
         """Refuse to start with a configuration that would be unsafe in public."""
+        from api.limiter import parse_rules
+
+        for name in self.__dataclass_fields__:
+            if name.startswith("rate_limit_"):
+                parse_rules(getattr(self, name))  # raises on a malformed rule
         if not self.production:
             return
         problems = []
@@ -174,5 +214,7 @@ class Settings:
             problems.append("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required")
         if not self.public_base_url.startswith("https://"):
             problems.append("PUBLIC_BASE_URL must be an https:// URL")
+        if len(self.app_secret) < 32:
+            problems.append("APP_SECRET must be set to at least 32 random characters")
         if problems:
             raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))

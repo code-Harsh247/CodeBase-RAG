@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import queue
+import secrets
 import shutil
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -34,8 +36,18 @@ from agent.provider import LLMProvider, Message, ProviderBudgetError, get_provid
 from agent.query_agent import QueryAgent
 from agent.summarize import Turn, summarize, trim_to_budget
 from api.auth import router as auth_router
-from api.deps import CurrentUser, User, api_error, get_settings, get_store, same_origin
+from api.concurrency import QuerySlots
+from api.deps import (
+    CurrentUser,
+    User,
+    api_error,
+    enforce_rate_limit,
+    get_settings,
+    get_store,
+    same_origin,
+)
 from api.ingest_queue import IngestCoordinator, Ticket
+from api.limiter import RateLimiter
 from api.maintenance import evict, physical_delete, reconcile
 from api.settings import Settings
 from api.store import AppStore
@@ -193,6 +205,10 @@ def get_budget(request: Request) -> Budget:
     return request.app.state.budget
 
 
+def get_query_slots(request: Request) -> QuerySlots:
+    return request.app.state.query_slots
+
+
 def _over_budget(exc: BudgetExhausted) -> Exception:
     return api_error(429, exc.code, exc.message, headers={"Retry-After": str(exc.retry_after)})
 
@@ -333,6 +349,7 @@ def summarize_history(body: SummarizeRequest, request: Request, user: User) -> S
     no latency for it — see the frontend's `ask()`. Metered like any other
     LLM call; when the budget is gone the client keeps its unsummarized turns.
     """
+    enforce_rate_limit(request, "summarize", user)
     budget = get_budget(request)
     try:
         budget.ensure_available(user.github_id, MIN_SUMMARIZE_USD)
@@ -356,6 +373,7 @@ def _stream_answer(
     provider: LLMProvider,
     cancel: threading.Event,
     deadline: float,
+    on_finish: Callable[[], None] | None = None,
 ) -> Iterator[str]:
     """Run the agent on a worker thread, forwarding hops as they land.
 
@@ -366,6 +384,10 @@ def _stream_answer(
     ``provider`` is metered: it refuses calls once the budget is spent,
     ``cancel`` is set, or ``deadline`` passes, which is how an abandoned or
     runaway question stops costing money.
+
+    Not itself a generator: the worker starts *now* and ``on_finish`` runs
+    when it ends, even if the client disconnects before the stream is read
+    (a generator's cleanup would never run in that case).
     """
     events: queue.Queue = queue.Queue()
 
@@ -427,10 +449,12 @@ def _stream_answer(
             events.put(_error("internal"))
         finally:
             events.put(None)
+            if on_finish is not None:
+                on_finish()
 
     threading.Thread(target=work, daemon=True).start()
     # A little grace past the provider's own deadline, for the last call to land.
-    yield from _drain(events, cancel, deadline=deadline + 30)
+    return _drain(events, cancel, deadline=deadline + 30)
 
 
 @router.post("/query", dependencies=[Depends(same_origin)])
@@ -438,7 +462,9 @@ def query(body: QueryRequest, request: Request, user: User) -> StreamingResponse
     store = get_store(request)
     settings = get_settings(request)
     budget = get_budget(request)
-    # Checked before streaming: once the stream starts the response is a 200.
+    # Every check happens before streaming: once the stream starts the
+    # response is a 200. Cheapest and most abuse-relevant first.
+    enforce_rate_limit(request, "query", user)
     if not store.can_access(user.github_id, body.repo_id):
         raise _not_found()
     try:
@@ -458,7 +484,26 @@ def query(body: QueryRequest, request: Request, user: User) -> StreamingResponse
         cancel=cancel,
         deadline=deadline,
     )
-    return _stream(_stream_answer(body, record.repo_id, provider, cancel, deadline))
+    slot, reason = get_query_slots(request).try_acquire(user.github_id)
+    if slot is None:
+        if reason == "user_busy":
+            raise api_error(
+                429, "user_busy", "You already have a question running. Wait for it to finish."
+            )
+        raise api_error(
+            503,
+            "busy",
+            "The server is answering as many questions as it can. Try again in a moment.",
+            headers={"Retry-After": "15"},
+        )
+    try:
+        stream = _stream_answer(
+            body, record.repo_id, provider, cancel, deadline, on_finish=slot.release
+        )
+    except BaseException:
+        slot.release()
+        raise
+    return _stream(stream)
 
 
 def _ensure_disk(settings: Settings) -> None:
@@ -592,8 +637,11 @@ def _stream_ingest(
             ticket.release()
             events.put(None)
 
+    # Started now, not when the stream is first read: the worker is what
+    # settles the queue ticket and the `indexing` claim, so it must run even
+    # if the client never reads a byte.
     threading.Thread(target=work, daemon=True).start()
-    yield from _drain(events, cancel)
+    return _drain(events, cancel)
 
 
 def _already_indexed(record) -> Iterator[str]:
@@ -671,11 +719,14 @@ def ingest_repo(body: IngestRequest, request: Request, user: User) -> StreamingR
     record = store.get_repo(repo_id)
     if record is not None and record.status == "ready" and not refresh:
         check_quota(record.repo_id)
+        enforce_rate_limit(request, "add", user)
         added = _add_existing(request, user, record.repo_id)
         if added is not None:
             return _stream(_already_indexed(added))
 
     check_quota(repo_id)
+    # Counted before the GitHub lookup, so probing for sizes is limited too.
+    enforce_rate_limit(request, "ingest", user)
 
     # Ask GitHub before cloning: existence, size, and the canonical spelling.
     try:
@@ -730,6 +781,12 @@ def ingest_repo(body: IngestRequest, request: Request, user: User) -> StreamingR
 
 def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
+    workers = os.environ.get("WEB_CONCURRENCY", "1")
+    if workers.isdigit() and int(workers) > 1:
+        # Rate limits, budget reservations, query slots and the ingest line
+        # all live in this process; several workers would each enforce them
+        # separately and multiply every limit.
+        logger.warning("WEB_CONCURRENCY=%s: run a single worker, or limits multiply", workers)
     store = AppStore(settings.app_db_path)
     app.state.store = store
     app.state.budget = Budget(
@@ -773,6 +830,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.github_transport = None
     app.state.coordinator = IngestCoordinator(workers=1, max_waiting=settings.ingest_queue_max)
+    app.state.limiter = RateLimiter()
+    app.state.query_slots = QuerySlots(max_total=settings.max_concurrent_queries, per_user=1)
+    # Keys the HMAC of client IPs. Without APP_SECRET (development only, see
+    # Settings.check) a per-process secret still keeps raw IPs out of memory.
+    app.state.ip_secret = settings.app_secret.encode() or secrets.token_bytes(32)
 
     # The UI is served from a separate origin only when not behind the Vite
     # proxy; in production it is same-origin, so this list is usually empty.

@@ -27,6 +27,7 @@ from api.deps import (
     api_error,
     get_settings,
     get_store,
+    rate_limit_wait,
     same_origin,
 )
 
@@ -61,6 +62,10 @@ def _fail(code: str) -> RedirectResponse:
 @router.get("/login")
 def login(request: Request) -> Response:
     settings = get_settings(request)
+    # Both halves of the flow are limited per IP: each callback costs two
+    # GitHub API calls, and a session row.
+    if rate_limit_wait(request, "login") is not None:
+        return _fail("rate_limited")
     if settings.auth_dev_user and not settings.production:
         return RedirectResponse("/", status_code=302)
     if not settings.oauth_configured:
@@ -92,6 +97,8 @@ def login(request: Request) -> Response:
 @router.get("/callback")
 def callback(request: Request, code: str = "", state: str = "") -> Response:
     settings = get_settings(request)
+    if rate_limit_wait(request, "login") is not None:
+        return _fail("rate_limited")
     store = get_store(request)
     if not settings.oauth_configured:
         return _fail("unavailable")
