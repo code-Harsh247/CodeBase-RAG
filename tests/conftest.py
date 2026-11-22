@@ -199,7 +199,7 @@ def fake_github_api(sizes: dict[str, int] | None = None, missing=(), canonical=N
     return httpx.MockTransport(handler)
 
 
-class _NoVectors:
+class NoVectors:
     def drop(self, repo_id):
         return None
 
@@ -237,7 +237,7 @@ def web(tmp_path, monkeypatch):
     monkeypatch.setenv("REPOS_DIR", str(tmp_path / "repos"))
     graph = FakeGraphServer()
     monkeypatch.setattr(server, "_client", lambda: graph)
-    monkeypatch.setattr(maintenance, "VectorStore", _NoVectors)
+    monkeypatch.setattr(maintenance, "VectorStore", NoVectors)
 
     settings = Settings(
         app_db_path=tmp_path / "app.db",

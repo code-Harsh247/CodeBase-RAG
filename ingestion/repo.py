@@ -9,6 +9,7 @@ import secrets
 import shutil
 import stat
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -124,8 +125,13 @@ def _force_remove(func, path, _exc) -> None:
 
 
 def remove_tree(path: Path) -> None:
-    if path.exists():
+    if not path.exists():
+        return
+    # `onexc` replaced `onerror` in Python 3.12; the handler fits either.
+    if sys.version_info >= (3, 12):
         shutil.rmtree(path, onexc=_force_remove)
+    else:
+        shutil.rmtree(path, onerror=_force_remove)
 
 
 def tree_size(path: Path) -> int:

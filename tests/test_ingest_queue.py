@@ -7,6 +7,7 @@ import threading
 import time
 
 import pytest
+from conftest import FakeGraphServer, fake_github_api
 
 from api import server
 from api.ingest_queue import IngestCoordinator
@@ -14,7 +15,6 @@ from api.maintenance import evict
 from api.store import AppStore
 from ingestion.limits import IngestLimitError
 from ingestion.pipeline import IngestionSummary
-from tests.conftest import FakeGraphServer, fake_github_api
 
 # ---------------------------------------------------------------- the line
 
@@ -99,11 +99,12 @@ def store(tmp_path):
 
 @pytest.fixture
 def no_side_effects(monkeypatch, tmp_path):
+    from conftest import NoVectors
+
     from api import maintenance
-    from tests.conftest import _NoVectors
 
     monkeypatch.setenv("REPOS_DIR", str(tmp_path / "repos"))
-    monkeypatch.setattr(maintenance, "VectorStore", _NoVectors)
+    monkeypatch.setattr(maintenance, "VectorStore", NoVectors)
 
 
 def _seed(store, repo_id, *, used, owners=(1,), public=False, status="ready"):

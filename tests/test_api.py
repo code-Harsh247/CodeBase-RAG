@@ -302,10 +302,10 @@ def test_delete_rejects_malformed_ids(web):
 
 
 def test_startup_adopts_graph_repos_and_applies_public(tmp_path, monkeypatch):
+    from conftest import FakeGraphServer
     from fastapi.testclient import TestClient
 
     from api.settings import Settings
-    from tests.conftest import FakeGraphServer
 
     graph = FakeGraphServer({"legacy/one": 5, "legacy/two": 7})
     monkeypatch.setattr(server, "_client", lambda: graph)
