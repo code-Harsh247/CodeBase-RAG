@@ -11,7 +11,7 @@ from evaluation.dataset import load_questions, summarise
 from evaluation.report import render
 from evaluation.runner import SYSTEMS, run_eval
 from graph.neo4j_client import Neo4jClient
-from ingestion.repo import DEFAULT_CLONE_ROOT
+from ingestion.repo import repo_dir
 
 DEFAULT_QUESTIONS = Path("evaluation/questions/requests.json")
 
@@ -61,7 +61,7 @@ def _cmd_eval(args) -> int:
         return 2
 
     repo_id = questions[0].repo_id
-    repo_path = Path(args.repo_path) if args.repo_path else DEFAULT_CLONE_ROOT / repo_id
+    repo_path = Path(args.repo_path) if args.repo_path else repo_dir(repo_id)
     if not repo_path.exists():
         print(
             f"No local checkout at {repo_path}. Run `ingest` for {repo_id} first.",

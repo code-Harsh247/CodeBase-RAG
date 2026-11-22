@@ -22,32 +22,71 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from agent.agent_loop import Hop, MultiHopAgent
 from agent.provider import Message, get_provider
 from agent.query_agent import QueryAgent
 from agent.summarize import Turn, summarize, trim_to_budget
+from api.settings import Settings
 from graph.neo4j_client import Neo4jClient
 from graph.schema import SHARED_LABEL
+from ingestion.limits import IngestLimitError
 from ingestion.pipeline import ingest
-from ingestion.repo import DEFAULT_CLONE_ROOT, parse_github_url
+from ingestion.repo import parse_github_url, repo_dir, validate_repo_id
 from retrieval.tools import RetrievalTools
 from retrieval.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+settings = Settings.from_env()
 
-app = FastAPI(title="CodeGraph API", version="0.1.0")
-
-# The UI is served from a separate origin in development (Vite on :5173).
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="CodeGraph API",
+    version="0.1.0",
+    # The interactive docs are a map of the attack surface; keep them local.
+    docs_url=None if settings.production else "/docs",
+    redoc_url=None,
+    openapi_url=None if settings.production else "/openapi.json",
 )
+
+# The UI is served from a separate origin in development (Vite on :5173). In
+# production it is same-origin behind the proxy, so this list is usually empty.
+if settings.allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(settings.allowed_origins),
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Content-Type"],
+    )
+
+#: Every error a stream can end with. The UI keys its wording off ``code``;
+#: ``message`` is a fixed, safe sentence. Exception text never leaves the
+#: server: it can carry file paths, hostnames and query fragments.
+ERROR_MESSAGES = {
+    "internal": "Something went wrong on the server. Please try again.",
+    "timeout": "That took too long and was stopped.",
+    "budget_exhausted": "The demo has used its budget for today. Try again tomorrow.",
+    "repo_too_large": "That repository is too large for this demo.",
+    "no_python_files": "That repository has no Python source to index.",
+    "clone_failed": "Could not download the repository from GitHub.",
+    "repo_not_found": (
+        "Repository not found. Check the URL; private repositories are not supported."
+    ),
+    "server_full": "The server is out of space for new repositories right now.",
+    "cancelled": "The request was cancelled.",
+}
+
+
+def _error(code: str, message: str | None = None) -> dict:
+    return {"type": "error", "code": code, "message": message or ERROR_MESSAGES[code]}
+
+
+def _checked_repo_id(value: str) -> str:
+    owner, name = validate_repo_id(value)
+    return f"{owner}/{name}"
 
 
 class HistoryTurn(BaseModel):
@@ -56,16 +95,23 @@ class HistoryTurn(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    repo_id: str
+    repo_id: str = Field(min_length=3, max_length=141)
     question: str = Field(min_length=1, max_length=2000)
     #: "multi_hop" investigates with tools; "single_hop" runs one Cypher query.
-    mode: str = "multi_hop"
+    mode: Literal["multi_hop", "single_hop"] = "multi_hop"
     #: Earlier turns of this thread that have not been folded into
     #: `history_summary` yet. Bounded again server-side before use — see
     #: `trim_to_budget` — since the client's fold-in may still be in flight.
     history: list[HistoryTurn] = Field(default_factory=list, max_length=20)
     #: Running summary of the turns before those, or "" for a fresh thread.
     history_summary: str = Field(default="", max_length=4000)
+
+    # The repo id becomes a filesystem path for grep/read_code, so a malformed
+    # one is refused here (422) rather than trusted downstream.
+    @field_validator("repo_id")
+    @classmethod
+    def _valid_repo_id(cls, value: str) -> str:
+        return _checked_repo_id(value)
 
 
 class SummarizeRequest(BaseModel):
@@ -114,7 +160,7 @@ def repos() -> dict:
             {
                 "repo_id": row["repo_id"],
                 "nodes": row["nodes"],
-                "has_source": (DEFAULT_CLONE_ROOT / row["repo_id"]).exists(),
+                "has_source": _repo_path(row["repo_id"]) is not None,
             }
             for row in rows
         ]
@@ -122,8 +168,11 @@ def repos() -> dict:
 
 
 def _repo_path(repo_id: str) -> Path | None:
-    candidate = DEFAULT_CLONE_ROOT / repo_id
-    return candidate if candidate.exists() else None
+    try:
+        candidate = repo_dir(repo_id)
+    except ValueError:
+        return None
+    return candidate if candidate.is_dir() else None
 
 
 def _force_remove(func, path, _exc) -> None:
@@ -145,14 +194,13 @@ def delete_repo(owner: str, name: str) -> dict:
     reappear from /api/repos on the next refresh — so this removes the thing
     itself. It is destructive and irreversible; re-adding means re-indexing.
     """
-    repo_id = f"{owner}/{name}"
-
-    # `owner` and `name` come from the URL path. Resolve and confirm the result
-    # is still inside the clone root before deleting anything from disk.
-    root = DEFAULT_CLONE_ROOT.resolve()
-    target = (DEFAULT_CLONE_ROOT / owner / name).resolve()
-    if root not in target.parents:
-        raise HTTPException(status_code=400, detail="Invalid repository id")
+    # `owner` and `name` come from the URL path. `repo_dir` validates both and
+    # confirms the resolved path is inside the clone root before any delete.
+    try:
+        repo_id = _checked_repo_id(f"{owner}/{name}")
+        target = repo_dir(repo_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid repository id") from None
 
     with _client() as client:
         removed = client.delete_repo(repo_id)
@@ -276,9 +324,9 @@ def _stream_answer(request: QueryRequest) -> Iterator[str]:
                         },
                     }
                 )
-        except Exception as exc:
-            logger.exception("query failed")
-            events.put({"type": "error", "message": f"{type(exc).__name__}: {exc}"})
+        except Exception:
+            logger.exception("query failed for %s", request.repo_id)
+            events.put(_error("internal"))
         finally:
             events.put(None)
 
@@ -292,42 +340,40 @@ def _stream_answer(request: QueryRequest) -> Iterator[str]:
         yield _event(item)
 
 
-def _readable_failure(exc: Exception) -> str:
-    """Turn a clone failure into something a person can act on.
+def _failure_code(exc: Exception) -> str:
+    """Classify an ingest failure into one of the fixed error codes.
 
     A raw GitCommandError is several lines of command line and stderr; the
     part that matters is almost always "that repository is not reachable".
     """
-    text = str(exc)
-    if "Repository not found" in text or "not found" in text.lower():
-        return (
-            "Repository not found. Check the URL, and note that private "
-            "repositories are not supported."
-        )
-    if "could not resolve host" in text.lower() or "unable to access" in text.lower():
-        return "Could not reach GitHub. Check your network connection."
-    return f"{type(exc).__name__}: {text[:300]}"
+    if isinstance(exc, IngestLimitError):
+        return exc.code if exc.code in ERROR_MESSAGES else "internal"
+    text = str(exc).lower()
+    if "repository not found" in text or "not found" in text:
+        return "repo_not_found"
+    if "git" in type(exc).__module__.lower() or "could not resolve host" in text:
+        return "clone_failed"
+    return "internal"
 
 
-def _stream_ingest(request: IngestRequest) -> Iterator[str]:
+def _stream_ingest(request: IngestRequest, owner: str, name: str) -> Iterator[str]:
     """Clone, parse and index a repository, reporting each stage as it starts."""
     events: queue.Queue = queue.Queue()
 
     def work() -> None:
         try:
-            # Reject anything that is not a GitHub repository before cloning:
-            # this endpoint runs `git clone` on whatever it is given.
-            owner, name = parse_github_url(request.url)
             events.put({"type": "progress", "stage": "start", "detail": f"{owner}/{name}"})
 
             with _client() as client:
                 summary = ingest(
-                    request.url,
+                    f"https://github.com/{owner}/{name}",
                     client,
                     refresh=request.refresh,
                     on_progress=lambda stage, detail: events.put(
                         {"type": "progress", "stage": stage, "detail": detail}
                     ),
+                    # Never index a path on this machine, whatever the input says.
+                    allow_local=False,
                 )
             events.put(
                 {
@@ -340,11 +386,13 @@ def _stream_ingest(request: IngestRequest) -> Iterator[str]:
                     "seconds": round(summary.duration_seconds, 1),
                 }
             )
-        except ValueError as exc:
-            events.put({"type": "error", "message": str(exc)})
+        except IngestLimitError as exc:
+            # Limit messages are written for users and carry no internals.
+            logger.info("ingest of %s/%s refused: %s", owner, name, exc.code)
+            events.put(_error(_failure_code(exc), exc.message))
         except Exception as exc:
-            logger.exception("ingest failed")
-            events.put({"type": "error", "message": _readable_failure(exc)})
+            logger.exception("ingest of %s/%s failed", owner, name)
+            events.put(_error(_failure_code(exc)))
         finally:
             events.put(None)
 
@@ -360,8 +408,15 @@ def _stream_ingest(request: IngestRequest) -> Iterator[str]:
 
 @app.post("/api/ingest")
 def ingest_repo(request: IngestRequest) -> StreamingResponse:
+    # Reject anything that is not a GitHub repository before streaming starts:
+    # this endpoint runs `git clone` on what it is given, and once the stream
+    # begins the response is already a 200.
+    try:
+        owner, name = parse_github_url(request.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     return StreamingResponse(
-        _stream_ingest(request),
+        _stream_ingest(request, owner, name),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -369,8 +424,6 @@ def ingest_repo(request: IngestRequest) -> StreamingResponse:
 
 @app.post("/api/query")
 def query(request: QueryRequest) -> StreamingResponse:
-    if request.mode not in ("multi_hop", "single_hop"):
-        raise HTTPException(status_code=400, detail="mode must be multi_hop or single_hop")
     return StreamingResponse(
         _stream_answer(request),
         media_type="text/event-stream",

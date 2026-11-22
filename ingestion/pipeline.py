@@ -126,8 +126,13 @@ def ingest(
     refresh: bool = False,
     vector_store: VectorStore | None = None,
     on_progress: Callable[[str, str], None] | None = None,
+    allow_local: bool = True,
 ) -> IngestionSummary:
     """Ingest a GitHub URL or a local directory path into the graph.
+
+    ``allow_local=False`` treats ``source`` strictly as a GitHub URL. The web
+    server passes it: otherwise a request whose "URL" happened to name an
+    existing directory on the server would have that directory indexed.
 
     ``on_progress(stage, detail)`` is called as each stage begins. Ingestion
     takes tens of seconds and its slowest parts (cloning, embedding) give no
@@ -139,7 +144,10 @@ def ingest(
 
     path = Path(source)
     report("clone", f"fetching {source}")
-    repo = local_repo(path) if path.exists() else clone_repo(source, refresh=refresh)
+    if allow_local and path.exists():
+        repo = local_repo(path)
+    else:
+        repo = clone_repo(source, refresh=refresh)
     logger.info("ingesting %s from %s", repo.repo_id, repo.path)
 
     report("parse", f"parsing {repo.repo_id}")

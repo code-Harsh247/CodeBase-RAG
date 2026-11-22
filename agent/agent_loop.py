@@ -28,8 +28,9 @@ from agent.provider import (
 )
 from agent.query_agent import _tidy_answer
 from agent.schema_prompt import schema_description
+from retrieval.cypher_guard import _first_line
 from retrieval.locations import Location, dedupe
-from retrieval.tools import RetrievalTools
+from retrieval.tools import RetrievalTools, cap_text
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +247,9 @@ class MultiHopAgent:
             # Reported back to the model as text; a broken tool call should not
             # end the investigation.
             logger.warning("tool %s raised", call.name, exc_info=True)
-            return Hop(call.name, str(arguments), False, f"Tool failed: {exc}")
+            return Hop(
+                call.name, str(arguments), False, f"Tool failed: {_first_line(exc)}"
+            )
 
         return Hop(call.name, argument, result.ok, result.text, result.locations)
 
@@ -276,7 +279,7 @@ class MultiHopAgent:
                 if self.on_hop is not None:
                     self.on_hop(hop_number, hop)
                 messages.append(
-                    Message(role="tool", content=hop.result, tool_call_id=call.id)
+                    Message(role="tool", content=cap_text(hop.result), tool_call_id=call.id)
                 )
 
         # Out of hops: ask for an answer from what was already gathered rather

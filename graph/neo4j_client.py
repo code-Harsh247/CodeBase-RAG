@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from typing import Self
 
-from neo4j import GraphDatabase
+from neo4j import READ_ACCESS, GraphDatabase, Query
 
 from graph.schema import SHARED_LABEL, Edge, EdgeType, Node, NodeType
 
@@ -41,10 +41,14 @@ class Neo4jClient:
 
     @classmethod
     def from_env(cls) -> Self:
+        password = os.environ.get("NEO4J_PASSWORD")
+        if not password:
+            # No default: a fallback password is a password everyone knows.
+            raise RuntimeError("NEO4J_PASSWORD is not set. Copy .env.example to .env and set it.")
         return cls(
             uri=os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
             user=os.environ.get("NEO4J_USER", "neo4j"),
-            password=os.environ.get("NEO4J_PASSWORD", "changeme123"),
+            password=password,
             database=os.environ.get("NEO4J_DATABASE") or None,
         )
 
@@ -63,6 +67,33 @@ class Neo4jClient:
     def run(self, query: str, **params) -> list[dict]:
         with self._driver.session(database=self._database) as session:
             return [record.data() for record in session.run(query, **params)]
+
+    def run_read(
+        self,
+        query: str,
+        params: dict | None = None,
+        *,
+        timeout_s: float | None = None,
+        max_rows: int | None = None,
+    ) -> list[dict]:
+        """Run model-written Cypher: read-only, time-boxed and row-capped.
+
+        READ access mode means the database itself refuses a write even if one
+        got past the static guard. The timeout stops a pathological traversal
+        from holding the server; ``max_rows`` stops a huge result from being
+        materialised at all — at most ``max_rows + 1`` rows are fetched, so the
+        caller can tell the result was cut short.
+        """
+        with self._driver.session(
+            database=self._database, default_access_mode=READ_ACCESS
+        ) as session:
+            result = session.run(Query(query, timeout=timeout_s), params or {})
+            rows: list[dict] = []
+            for record in result:
+                rows.append(record.data())
+                if max_rows is not None and len(rows) > max_rows:
+                    break
+            return rows
 
     # ---------------------------------------------------------------- schema
 

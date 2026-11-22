@@ -2,11 +2,18 @@ services:
   neo4j:
     image: neo4j:5-community
     ports:
-      - "7474:7474" # Neo4j Browser
-      - "7687:7687" # Bolt
+      # Loopback only: the database is for this machine's API, never the network.
+      - "127.0.0.1:7474:7474" # Neo4j Browser
+      - "127.0.0.1:7687:7687" # Bolt
     environment:
-      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-changeme123}
-      - NEO4J_PLUGINS=["apoc"]
+      # No default password: a fallback password is one everyone knows.
+      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+      # Server-side backstops for model-written Cypher, on top of the client's
+      # own per-query timeout and row cap.
+      - NEO4J_db_transaction_timeout=10s
+      - NEO4J_db_memory_transaction_max=512m
+      # No plugins. APOC was unused, and procedures like apoc.cypher.doIt can
+      # run arbitrary writes hidden inside a string.
     volumes:
       - neo4j_data:/data
     healthcheck:

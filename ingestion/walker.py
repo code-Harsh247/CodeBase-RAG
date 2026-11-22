@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
+from ingestion.limits import IngestLimitError
+
 #: Directories that never contain first-party source worth indexing.
 DEFAULT_EXCLUDE_DIRS = frozenset(
     {
@@ -41,23 +43,50 @@ def walk_files(
     exclude_dirs: Iterable[str] = DEFAULT_EXCLUDE_DIRS,
     include_tests: bool = False,
     max_file_bytes: int = 2_000_000,
+    max_files: int | None = None,
+    max_total_bytes: int | None = None,
 ) -> Iterator[Path]:
     """Yield source files under ``root`` matching ``extensions``.
 
     Paths are yielded in sorted order so ingestion is deterministic.
+
+    Symlinks are never followed: a hostile repository could otherwise point
+    ``config.py`` at a file elsewhere on the server and have it indexed and
+    quoted back. ``max_files`` / ``max_total_bytes`` raise
+    :class:`IngestLimitError` once exceeded, so an oversized repository fails
+    fast instead of tying up the server.
     """
     root = Path(root)
+    base = root.resolve()
     wanted = {ext.lower() for ext in extensions}
     skip = set(exclude_dirs)
     if not include_tests:
         skip |= TEST_DIR_NAMES
 
+    count = 0
+    total_bytes = 0
     for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in wanted:
+        if path.is_symlink() or not path.is_file() or path.suffix.lower() not in wanted:
             continue
         rel_parts = path.relative_to(root).parts[:-1]
         if any(part in skip for part in rel_parts):
             continue
-        if path.stat().st_size > max_file_bytes:
+        # A symlinked *directory* above the file would also resolve elsewhere.
+        if base not in path.resolve().parents:
             continue
+        size = path.stat().st_size
+        if size > max_file_bytes:
+            continue
+
+        count += 1
+        total_bytes += size
+        if max_files is not None and count > max_files:
+            raise IngestLimitError(
+                "repo_too_large", f"The repository has more than {max_files} Python files."
+            )
+        if max_total_bytes is not None and total_bytes > max_total_bytes:
+            raise IngestLimitError(
+                "repo_too_large",
+                f"The repository has more than {max_total_bytes // 1_000_000} MB of Python source.",
+            )
         yield path

@@ -85,3 +85,98 @@ def test_strip_noise_blanks_literals_and_comments():
     assert "MERGE" not in stripped
     assert "DELETE" not in stripped
     assert "MATCH" in stripped
+
+
+# ----------------------------------------------------------------- bypasses
+# Each of these got past an earlier version of the guard.
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # A write hidden inside a string literal, executed by a procedure.
+        "CALL apoc.cypher.doIt('MATCH (n) DETACH DELETE n', {}) YIELD value RETURN value",
+        "MATCH (n {repo_id: $repo_id}) CALL apoc.cypher.runWrite('CREATE (x)', {}) RETURN n",
+        # Backtick-quoted procedure names dodge a dotted-name pattern.
+        "MATCH (n {repo_id: $repo_id}) CALL `apoc`.`cypher`.`doIt`('x', {}) YIELD value RETURN 1",
+        "CALL db.labels() YIELD label RETURN label",
+        # Subqueries need CALL too; nothing the agent asks for requires one.
+        "CALL { MATCH (n {repo_id: $repo_id}) RETURN n } RETURN n",
+    ],
+)
+def test_rejects_every_procedure_call(query):
+    assert not validate_cypher(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SHOW DATABASES",
+        "SHOW USERS",
+        "USE system MATCH (n {repo_id: $repo_id}) RETURN n",
+        "STOP DATABASE neo4j",
+        "START DATABASE neo4j",
+        "TERMINATE TRANSACTIONS 'neo4j-transaction-1'",
+    ],
+)
+def test_rejects_admin_commands(query):
+    assert not validate_cypher(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # Stripping comments before strings let the `//` inside the literal eat
+        # the rest of the line, hiding the write that follows it.
+        "MATCH (n {repo_id: $repo_id}) WHERE n.name = '//' DETACH DELETE n",
+        "MATCH (n {repo_id: $repo_id}) WHERE n.name = \"//\" DETACH DELETE n",
+        "MATCH (n {repo_id: $repo_id}) WHERE n.name = '/*' DETACH DELETE n // */",
+        # An escaped quote does not end the literal.
+        r"MATCH (n {repo_id: $repo_id}) WHERE n.name = 'it\'s' DETACH DELETE n",
+    ],
+)
+def test_comment_markers_inside_strings_do_not_hide_writes(query):
+    assert not validate_cypher(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "MATCH (n {repo_id: $repo_id}) WHERE n.name = 'abc DETACH DELETE n",
+        "MATCH (n {repo_id: $repo_id}) RETURN n /* DETACH DELETE n",
+        "MATCH (n {repo_id: $repo_id}) RETURN `n DETACH DELETE n",
+    ],
+)
+def test_unterminated_literals_fail_closed(query):
+    result = validate_cypher(query)
+    assert not result
+    assert "unterminated" in result.error
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "MATCH (n {repo_id: $repo_id}), (m:Function) WHERE m.repo_id <> $repo_id RETURN m.name",
+        "MATCH (n:Function {repo_id: $repo_id}) RETURN n.repo_id",
+        "MATCH (n {repo_id: $repo_id}), (m) WHERE m.repo_id STARTS WITH 'a' RETURN m",
+        "MATCH (n {repo_id: $repo_id}), (m {repo_id: 'someone/else'}) RETURN m",
+    ],
+)
+def test_repo_id_may_only_scope_the_query(query):
+    assert not validate_cypher(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # CALLS is a relationship type, not the CALL keyword.
+        "MATCH (a:Function {repo_id: $repo_id})-[:CALLS]->(b) RETURN b.name LIMIT 10",
+        "MATCH (f:Function) WHERE f.repo_id = $repo_id RETURN f.name",
+        "MATCH (f:Function) WHERE $repo_id = f.repo_id RETURN f.name",
+        "MATCH (f:Function {repo_id: $repo_id}) WHERE f.name STARTS WITH 'test_' RETURN f",
+        "MATCH (f:Function {repo_id: $repo_id}) WHERE f.docstring CONTAINS 'show' RETURN f",
+        "MATCH (f:Function {repo_id: $repo_id}) WHERE f.name = 'use_cache' RETURN f",
+    ],
+)
+def test_legitimate_reads_still_pass(query):
+    assert validate_cypher(query), validate_cypher(query).error

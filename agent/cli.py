@@ -9,7 +9,7 @@ from agent.agent_loop import MultiHopAgent
 from agent.provider import get_provider
 from agent.query_agent import QueryAgent
 from graph.neo4j_client import Neo4jClient
-from ingestion.repo import DEFAULT_CLONE_ROOT
+from ingestion.repo import repo_dir
 from retrieval.tools import RetrievalTools
 
 
@@ -41,7 +41,7 @@ def register(subparsers) -> dict:
 
 
 def _default_repo_path(repo_id: str) -> Path | None:
-    candidate = DEFAULT_CLONE_ROOT / repo_id
+    candidate = repo_dir(repo_id)
     return candidate if candidate.exists() else None
 
 

@@ -127,7 +127,8 @@ class QueryAgent:
         return (
             f"Question: {question}\n\n"
             f"Cypher executed:\n{outcome.cypher}\n\n"
-            f"Results ({outcome.row_count} rows):\n{render_rows(outcome.rows)}\n\n"
+            f"Results ({outcome.row_count} rows):\n"
+            f"{render_rows(outcome.rows, truncated=outcome.truncated)}\n\n"
             f"Answer the question from these results."
         )
 
