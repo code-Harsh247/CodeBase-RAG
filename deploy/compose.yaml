@@ -1,0 +1,76 @@
+# CodeGraph's own stack. No public ports: the shared proxy (~/proxy) reaches
+# the API as "codegraph:8000" on the "web" network, and Neo4j is reachable
+# only from the API, on this stack's private network.
+#
+# Secrets come from ./.env (copied from .env.production; never committed).
+# Run from this folder:  sudo docker compose up -d --build
+name: codegraph
+
+services:
+  api:
+    build: ..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      # Settings for the shared, single-process server; see .env.example.
+      MAX_INDEXED_REPOS: "40"
+      REPO_IDLE_TTL_DAYS: "7"
+      MIN_FREE_DISK_GB: "8"
+    expose:
+      - "8000"
+    volumes:
+      - data:/data
+      - cache:/home/app/.cache
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    mem_limit: 3g
+    pids_limit: 512
+    networks:
+      internal: {}
+      web:
+        aliases:
+          - codegraph              # the name the proxy uses; unique per project
+
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      # No default: compose refuses to start without NEO4J_PASSWORD in .env.
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in deploy/.env}
+      # Backstops for model-written Cypher, on top of the client's own
+      # per-query timeout and row cap. No plugins (APOC was unused and can
+      # run writes hidden in strings).
+      NEO4J_db_transaction_timeout: 10s
+      NEO4J_db_memory_transaction_max: 512m
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1g
+      NEO4J_server_memory_pagecache_size: 512m
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+    mem_limit: 2g
+    networks:
+      - internal
+
+networks:
+  internal: {}
+  web:
+    external: true
+
+volumes:
+  data:
+  cache:
+  neo4j_data:

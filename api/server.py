@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from agent.agent_loop import Hop, MultiHopAgent
@@ -849,6 +850,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(router)
+
+    # In production the built UI is served from here too: one origin, so no
+    # CORS and the session cookie just works. In development Vite serves it.
+    ui_dist = os.environ.get("UI_DIST")
+    if ui_dist and Path(ui_dist, "index.html").is_file():
+        app.mount("/", StaticFiles(directory=ui_dist, html=True), name="ui")
     return app
 
 

@@ -1,0 +1,22 @@
+# CodeGraph's site block. setup.sh copies this to ~/proxy/sites/,
+# replacing SITE_ADDRESS with the real address.
+SITE_ADDRESS {
+	# Compress the UI's static files only: a compressor in front of the SSE
+	# streams under /api could hold events back while it fills a block.
+	@static not path /api/*
+	encode @static zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	reverse_proxy codegraph:8000 {
+		# Answers and indexing progress stream as SSE; pass each event on
+		# the moment it arrives instead of buffering.
+		flush_interval -1
+	}
+}

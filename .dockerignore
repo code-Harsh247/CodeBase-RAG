@@ -1,0 +1,22 @@
+# Only what the Dockerfile copies matters; keep secrets and bulk out of the
+# build context entirely.
+.env
+.env.*
+!.env.example
+.git
+.venv
+venv
+.data
+.repos
+.chroma
+.chroma-baseline
+.claude
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+ui/node_modules
+ui/dist
+evaluation/results
+docs
+tests
