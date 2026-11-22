@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 
@@ -110,7 +111,7 @@ def test_query_uses_the_canonical_repo_id(web, monkeypatch):
     _ready(web, "PSF/Requests", alice)
     seen = {}
 
-    def fake_stream(body, repo_id):
+    def fake_stream(body, repo_id, provider, cancel, deadline):
         seen["repo_id"] = repo_id
         yield server._event({"type": "answer", "answer": "ok", "locations": [], "usage": {}})
 
@@ -317,3 +318,116 @@ def test_startup_adopts_graph_repos_and_applies_public(tmp_path, monkeypatch):
         assert store.get_repo("legacy/one").status == "ready"
         assert not store.get_repo("legacy/one").public
         assert store.get_repo("legacy/two").public
+
+
+# -------------------------------------------------------------------- budget
+
+
+class _NoTools:
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+def _tight_budget(web, per_user: float, daily: float = 1.0):
+    from agent.metering import Budget
+
+    web.app.state.budget = Budget(web.store, daily_usd=daily, per_user_usd=per_user)
+
+
+def test_questions_are_refused_up_front_when_the_budget_is_gone(web, monkeypatch):
+    alice = web.login_as("alice")
+    _ready(web, "a/lib", alice)
+    _tight_budget(web, per_user=0.001)
+    monkeypatch.setattr(server, "get_provider", lambda: pytest.fail("must not call the LLM"))
+
+    response = web.client.post("/api/query", json={"repo_id": "a/lib", "question": "hi"})
+
+    assert response.status_code == 429
+    assert response.json()["detail"]["code"] == "user_budget_exhausted"
+    assert 0 < int(response.headers["retry-after"]) <= 86_400
+
+
+def test_the_global_cap_is_reported_as_such(web):
+    alice = web.login_as("alice")
+    _ready(web, "a/lib", alice)
+    _tight_budget(web, per_user=1.0, daily=0.001)
+
+    response = web.client.post("/api/query", json={"repo_id": "a/lib", "question": "hi"})
+    assert response.json()["detail"]["code"] == "budget_exhausted"
+
+
+def test_summaries_are_metered_too(web, monkeypatch):
+    web.login_as("alice")
+    _tight_budget(web, per_user=0.001)
+    monkeypatch.setattr(server, "get_provider", lambda: pytest.fail("must not call the LLM"))
+
+    response = web.client.post(
+        "/api/summarize", json={"turns": [{"role": "user", "content": "hi"}]}
+    )
+    assert response.status_code == 429
+
+
+def test_running_out_mid_question_ends_the_stream_cleanly(web, monkeypatch):
+    from conftest import FakeProvider
+
+    alice = web.login_as("alice")
+    _ready(web, "a/lib", alice)
+    # Enough to start, not enough for the first agent turn's worst case.
+    _tight_budget(web, per_user=0.002)
+    monkeypatch.setattr(server, "MIN_QUERY_USD", 0.0)
+    monkeypatch.setattr(server, "RetrievalTools", _NoTools)
+    inner = FakeProvider()
+    monkeypatch.setattr(server, "get_provider", lambda: inner)
+
+    response = web.client.post("/api/query", json={"repo_id": "a/lib", "question": "hi"})
+
+    events = _events(response)
+    assert events[-1]["type"] == "error"
+    assert events[-1]["code"] == "user_budget_exhausted"
+    assert inner.conversations == []  # refused before calling out
+
+
+def test_answered_questions_are_charged(web, monkeypatch):
+    from conftest import FakeProvider
+
+    from agent.metering import utc_day
+
+    class Costing(FakeProvider):
+        def converse(self, messages, tools, *, max_tokens=2048):
+            from agent.provider import LLMResponse
+
+            return LLMResponse(text="It is.", model="fake", input_tokens=5, output_tokens=2,
+                               cost_usd=0.0009)
+
+    alice = web.login_as("alice")
+    _ready(web, "a/lib", alice)
+    monkeypatch.setattr(server, "RetrievalTools", _NoTools)
+    monkeypatch.setattr(server, "get_provider", Costing)
+
+    events = _events(web.client.post("/api/query", json={"repo_id": "a/lib", "question": "hi"}))
+
+    assert events[-1]["type"] == "answer"
+    today = utc_day(time.time())
+    assert web.store.user_spend(today, alice.github_id) == pytest.approx(0.0009)
+
+
+def test_closing_the_stream_cancels_the_question():
+    import queue
+    import threading
+
+    events: queue.Queue = queue.Queue()
+    cancel = threading.Event()
+    events.put({"type": "hop"})
+    stream = server._drain(events, cancel)
+    next(stream)
+    stream.close()  # what the server does when the client disconnects
+    assert cancel.is_set()
+
+
+def test_a_stuck_worker_times_out_the_stream():
+    import queue
+    import time as clock
+
+    stream = server._drain(queue.Queue(), deadline=clock.monotonic() - 1)
+    frames = list(stream)
+    assert '"code": "timeout"' in frames[-1]

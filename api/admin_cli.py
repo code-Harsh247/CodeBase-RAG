@@ -21,6 +21,8 @@ def register(subparsers) -> dict:
 
     commands.add_parser("repos", help="list every indexed repository")
     commands.add_parser("users", help="list users, most recently seen first")
+    spend = commands.add_parser("spend", help="LLM spend per UTC day, with top users")
+    spend.add_argument("--days", type=int, default=7)
     commands.add_parser(
         "reconcile", help="adopt graph repos missing from the store; flag vanished ones"
     )
@@ -79,6 +81,19 @@ def _users(args, store: AppStore) -> int:
     return 0
 
 
+def _spend(args, store: AppStore) -> int:
+    settings = Settings.from_env()
+    print(f"daily cap ${settings.daily_budget_usd:.2f}, per user ${settings.per_user_daily_usd:.2f}")
+    for day in store.spend_history(args.days):
+        print(
+            f"{day['day']}  ${day['usd']:.4f}  {day['calls']} calls  "
+            f"{day['tokens']:,} tokens"
+        )
+        for who, usd, calls in day["top"]:
+            print(f"    {who:<28} ${usd:.4f}  {calls} calls")
+    return 0
+
+
 def _reconcile(args, store: AppStore) -> int:
     with Neo4jClient.from_env() as client:
         # The server may be running an ingest right now; leave those rows be.
@@ -114,6 +129,7 @@ def _ban(args, store: AppStore, banned: bool = True) -> int:
 _HANDLERS = {
     "repos": _repos,
     "users": _users,
+    "spend": _spend,
     "reconcile": _reconcile,
     "delete": _delete,
     "public": _public,

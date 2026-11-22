@@ -14,6 +14,13 @@ NOT do, both learned by testing rather than assumed:
 * It never omits ``max_tokens``. OpenRouter defaults to a model's max context
   when it is unset, which silently fails with a 402 on a small account
   balance long before it fails for a real reason.
+
+Every request also carries ``provider.max_price`` (USD per million tokens,
+from ``LLM_PRICE_INPUT_PER_M`` / ``LLM_PRICE_OUTPUT_PER_M``), so OpenRouter
+will not route to a provider dearer than the prices the spend cap reserves
+against: they are a ceiling, not a guess. If no provider is under it,
+OpenRouter answers 404 and charges nothing. Cost comes back in ``usage.cost``
+on every response, streamed or not, with no extra request field.
 """
 
 from __future__ import annotations
@@ -24,10 +31,12 @@ from collections.abc import Iterator
 
 import httpx
 
+from agent.metering import prices_from_env
 from agent.provider import (
     LLMProvider,
     LLMResponse,
     Message,
+    ProviderBudgetError,
     StreamComplete,
     TextDelta,
     ToolCall,
@@ -52,6 +61,8 @@ class OpenRouterProvider(LLMProvider):
                 "key from https://openrouter.ai/settings/keys."
             )
         self.model = model or DEFAULT_MODEL
+        price_in, price_out = prices_from_env()
+        self._routing = {"max_price": {"prompt": price_in, "completion": price_out}}
         self._client = httpx.Client(
             base_url=BASE_URL,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
@@ -67,12 +78,11 @@ class OpenRouterProvider(LLMProvider):
 
     def _post(self, payload: dict) -> dict:
         response = self._client.post(
-            CHAT_COMPLETIONS_PATH, json={"model": self.model, **payload}
+            CHAT_COMPLETIONS_PATH,
+            json={"model": self.model, "provider": self._routing, **payload},
         )
         if response.status_code != 200:
-            raise RuntimeError(
-                f"OpenRouter request failed ({response.status_code}): {response.text[:500]}"
-            )
+            _raise_for(response.status_code, response.text)
         return response.json()
 
     def _complete(
@@ -150,6 +160,7 @@ class OpenRouterProvider(LLMProvider):
     ) -> Iterator[TextDelta | StreamComplete]:
         payload = {
             "model": self.model,
+            "provider": self._routing,
             "messages": [_to_wire(message) for message in messages],
             "tools": tools,
             "tool_choice": "auto",
@@ -168,10 +179,7 @@ class OpenRouterProvider(LLMProvider):
         with self._client.stream("POST", CHAT_COMPLETIONS_PATH, json=payload) as response:
             if response.status_code != 200:
                 response.read()
-                raise RuntimeError(
-                    f"OpenRouter request failed ({response.status_code}): "
-                    f"{response.text[:500]}"
-                )
+                _raise_for(response.status_code, response.text)
             for line in response.iter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -221,8 +229,24 @@ class OpenRouterProvider(LLMProvider):
                 output_tokens=usage.get("completion_tokens", 0),
                 reasoning_tokens=details.get("reasoning_tokens", 0) or 0,
                 tool_calls=calls,
+                cost_usd=_cost(usage),
             )
         )
+
+
+def _raise_for(status: int, body: str) -> None:
+    if status == 402:
+        raise ProviderBudgetError(f"OpenRouter has insufficient credit (402): {body[:300]}")
+    raise RuntimeError(f"OpenRouter request failed ({status}): {body[:500]}")
+
+
+def _cost(usage: dict) -> float | None:
+    """``usage.cost``: OpenRouter credits charged, which are US dollars."""
+    cost = usage.get("cost")
+    try:
+        return float(cost) if cost is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _to_response(data: dict) -> LLMResponse:
@@ -241,6 +265,7 @@ def _to_response(data: dict) -> LLMResponse:
         output_tokens=usage.get("completion_tokens", 0),
         reasoning_tokens=details.get("reasoning_tokens", 0) or 0,
         tool_calls=calls,
+        cost_usd=_cost(usage),
     )
 
 

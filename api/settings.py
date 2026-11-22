@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from agent.metering import prices_from_env
+
 _DEV_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 _DEV_BASE_URL = "http://localhost:5173"
 
@@ -80,6 +82,16 @@ class Settings:
     max_indexed_repos: int | None = None
     repo_idle_ttl_days: float | None = None
 
+    # -- spend (see agent/metering.py) ------------------------------------
+    daily_budget_usd: float = 0.25
+    #: One account's share of the daily budget.
+    per_user_daily_usd: float = 0.06
+    #: Ceiling prices, USD per million tokens; OpenRouter is held to them.
+    llm_price_input_per_m: float = 0.40
+    llm_price_output_per_m: float = 1.60
+    #: A question still running after this long is stopped.
+    query_deadline_s: float = 180
+
     @property
     def production(self) -> bool:
         return self.app_env == "production"
@@ -142,6 +154,11 @@ class Settings:
             repo_idle_ttl_days=_optional_float(
                 env("REPO_IDLE_TTL_DAYS"), 7 if production else None
             ),
+            daily_budget_usd=float(env("DAILY_BUDGET_USD") or 0.25),
+            per_user_daily_usd=float(env("PER_USER_DAILY_USD") or 0.06),
+            llm_price_input_per_m=prices_from_env()[0],
+            llm_price_output_per_m=prices_from_env()[1],
+            query_deadline_s=float(env("QUERY_DEADLINE_SECONDS") or 180),
         )
         settings.check()
         return settings

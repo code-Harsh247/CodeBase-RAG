@@ -29,7 +29,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from agent.agent_loop import Hop, MultiHopAgent
-from agent.provider import Message, get_provider
+from agent.metering import Budget, BudgetExhausted, MeteredProvider, RequestStopped
+from agent.provider import LLMProvider, Message, ProviderBudgetError, get_provider
 from agent.query_agent import QueryAgent
 from agent.summarize import Turn, summarize, trim_to_budget
 from api.auth import router as auth_router
@@ -55,7 +56,10 @@ load_dotenv()
 ERROR_MESSAGES = {
     "internal": "Something went wrong on the server. Please try again.",
     "timeout": "That took too long and was stopped.",
-    "budget_exhausted": "The demo has used its budget for today. Try again tomorrow.",
+    "budget_exhausted": "The demo has used its budget for today. It resets at 00:00 UTC.",
+    "user_budget_exhausted": (
+        "You have used your share of today's demo budget. It resets at 00:00 UTC."
+    ),
     "repo_too_large": "That repository is too large for this demo.",
     "no_python_files": "That repository has no Python source to index.",
     "clone_failed": "Could not download the repository from GitHub.",
@@ -70,6 +74,11 @@ _STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 #: How long a request waits for a repository another request is changing.
 REPO_LOCK_WAIT_S = 5.0
+
+#: Budget that must be left before a question or summary is even started:
+#: roughly one agent turn's worst case, so a run is not refused on its first call.
+MIN_QUERY_USD = 0.01
+MIN_SUMMARIZE_USD = 0.003
 
 
 def _error(code: str, message: str | None = None) -> dict:
@@ -151,21 +160,53 @@ def _event(payload: dict) -> str:
     return f"data: {json.dumps(payload)}\n\n"
 
 
-def _drain(events: queue.Queue, cancel: threading.Event | None = None) -> Iterator[str]:
+def _drain(
+    events: queue.Queue,
+    cancel: threading.Event | None = None,
+    deadline: float | None = None,
+) -> Iterator[str]:
     """Forward queued events as SSE frames until the worker signals the end.
 
     ``cancel`` is set when the stream stops for any reason, including the
-    client going away mid-stream, so the worker can stop waiting on its behalf.
+    client going away mid-stream, so the worker stops at its next LLM call
+    instead of spending on an answer nobody will read. Past ``deadline`` the
+    stream ends with a timeout even if the worker is stuck.
     """
     try:
         while True:
-            item = events.get()
+            try:
+                item = events.get(timeout=1)
+            except queue.Empty:
+                if deadline is not None and time.monotonic() > deadline:
+                    yield _event(_error("timeout"))
+                    break
+                continue
             if item is None:
                 break
             yield _event(item)
     finally:
         if cancel is not None:
             cancel.set()
+
+
+def get_budget(request: Request) -> Budget:
+    return request.app.state.budget
+
+
+def _over_budget(exc: BudgetExhausted) -> Exception:
+    return api_error(429, exc.code, exc.message, headers={"Retry-After": str(exc.retry_after)})
+
+
+def _stopped_event(exc: Exception) -> dict:
+    """The SSE error for an exception that ended a question early, or ``internal``."""
+    if isinstance(exc, BudgetExhausted):
+        return _error(exc.code, exc.message)
+    if isinstance(exc, RequestStopped):
+        return _error(exc.code)
+    if isinstance(exc, ProviderBudgetError):
+        # The OpenRouter key itself is out of credit: the backstop tripped.
+        return _error("budget_exhausted")
+    return _error("internal")
 
 
 def get_coordinator(request: Request) -> IngestCoordinator:
@@ -285,29 +326,46 @@ def delete_repo(
 
 
 @router.post("/summarize", dependencies=[Depends(same_origin)])
-def summarize_history(
-    request: SummarizeRequest, user: User
-) -> SummarizeResponse:
+def summarize_history(body: SummarizeRequest, request: Request, user: User) -> SummarizeResponse:
     """Fold recent turns into the thread's running summary.
 
     Called in the background after an answer lands, so the next question pays
-    no latency for it — see the frontend's `ask()`.
+    no latency for it — see the frontend's `ask()`. Metered like any other
+    LLM call; when the budget is gone the client keeps its unsummarized turns.
     """
-    provider = get_provider()
-    summary, _ = summarize(
-        provider,
-        request.prior_summary,
-        [Turn(turn.role, turn.content) for turn in request.turns],
-    )
+    budget = get_budget(request)
+    try:
+        budget.ensure_available(user.github_id, MIN_SUMMARIZE_USD)
+        provider = MeteredProvider(get_provider(), budget, user.github_id)
+        summary, _ = summarize(
+            provider,
+            body.prior_summary,
+            [Turn(turn.role, turn.content) for turn in body.turns],
+        )
+    except BudgetExhausted as exc:
+        raise _over_budget(exc) from None
+    except ProviderBudgetError:
+        logger.error("OpenRouter is out of credit")
+        raise api_error(429, "budget_exhausted", ERROR_MESSAGES["budget_exhausted"]) from None
     return SummarizeResponse(summary=summary)
 
 
-def _stream_answer(request: QueryRequest, repo_id: str) -> Iterator[str]:
+def _stream_answer(
+    request: QueryRequest,
+    repo_id: str,
+    provider: LLMProvider,
+    cancel: threading.Event,
+    deadline: float,
+) -> Iterator[str]:
     """Run the agent on a worker thread, forwarding hops as they land.
 
     The agent is synchronous and its callback fires mid-run, so the work runs
     off-thread and communicates through a queue; the generator drains that
     queue, which is what turns a 30-second call into a live trace.
+
+    ``provider`` is metered: it refuses calls once the budget is spent,
+    ``cancel`` is set, or ``deadline`` passes, which is how an abandoned or
+    runaway question stops costing money.
     """
     events: queue.Queue = queue.Queue()
 
@@ -327,7 +385,6 @@ def _stream_answer(request: QueryRequest, repo_id: str) -> Iterator[str]:
     def work() -> None:
         try:
             with _client() as client:
-                provider = get_provider()
                 if request.mode == "single_hop":
                     result = QueryAgent(provider, client, repo_id).answer(request.question)
                     for attempt in result.attempts:
@@ -362,6 +419,9 @@ def _stream_answer(request: QueryRequest, repo_id: str) -> Iterator[str]:
                         },
                     }
                 )
+        except (BudgetExhausted, RequestStopped, ProviderBudgetError) as exc:
+            logger.info("query on %s stopped: %s", repo_id, type(exc).__name__)
+            events.put(_stopped_event(exc))
         except Exception:
             logger.exception("query failed for %s", repo_id)
             events.put(_error("internal"))
@@ -369,24 +429,36 @@ def _stream_answer(request: QueryRequest, repo_id: str) -> Iterator[str]:
             events.put(None)
 
     threading.Thread(target=work, daemon=True).start()
-    yield from _drain(events)
+    # A little grace past the provider's own deadline, for the last call to land.
+    yield from _drain(events, cancel, deadline=deadline + 30)
 
 
 @router.post("/query", dependencies=[Depends(same_origin)])
-def query(
-    body: QueryRequest, request: Request, user: User
-) -> StreamingResponse:
+def query(body: QueryRequest, request: Request, user: User) -> StreamingResponse:
     store = get_store(request)
+    settings = get_settings(request)
+    budget = get_budget(request)
     # Checked before streaming: once the stream starts the response is a 200.
     if not store.can_access(user.github_id, body.repo_id):
         raise _not_found()
+    try:
+        budget.ensure_available(user.github_id, MIN_QUERY_USD)
+    except BudgetExhausted as exc:
+        raise _over_budget(exc) from None
+
     record = store.get_repo(body.repo_id)
     store.touch_repo(record.repo_id)
-    return StreamingResponse(
-        _stream_answer(body, record.repo_id),
-        media_type="text/event-stream",
-        headers=_STREAM_HEADERS,
+    cancel = threading.Event()
+    deadline = time.monotonic() + settings.query_deadline_s
+    provider = MeteredProvider(
+        get_provider(),
+        budget,
+        user.github_id,
+        prices=(settings.llm_price_input_per_m, settings.llm_price_output_per_m),
+        cancel=cancel,
+        deadline=deadline,
     )
+    return _stream(_stream_answer(body, record.repo_id, provider, cancel, deadline))
 
 
 def _ensure_disk(settings: Settings) -> None:
@@ -660,6 +732,11 @@ def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
     store = AppStore(settings.app_db_path)
     app.state.store = store
+    app.state.budget = Budget(
+        store,
+        daily_usd=settings.daily_budget_usd,
+        per_user_usd=settings.per_user_daily_usd,
+    )
     purged = store.purge_expired_sessions()
     try:
         with _client() as client:

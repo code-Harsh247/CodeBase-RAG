@@ -63,6 +63,23 @@ _MIGRATIONS: tuple[str, ...] = (
     );
     CREATE INDEX repo_owners_repo ON repo_owners (repo_id);
     """,
+    # 2: the spend ledger behind the daily LLM budget (agent/metering.py).
+    """
+    CREATE TABLE spend (
+        day     TEXT PRIMARY KEY,
+        usd     REAL NOT NULL DEFAULT 0,
+        calls   INTEGER NOT NULL DEFAULT 0,
+        tokens  INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE spend_by_user (
+        day        TEXT NOT NULL,
+        github_id  INTEGER NOT NULL,
+        usd        REAL NOT NULL DEFAULT 0,
+        calls      INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, github_id)
+    );
+    """,
 )
 
 #: last_seen_at is a coarse signal; don't write on every request.
@@ -425,6 +442,61 @@ class AppStore:
             return self._db.execute(
                 "SELECT count(*) FROM repo_owners WHERE github_id = ?", (github_id,)
             ).fetchone()[0]
+
+    # ----------------------------------------------------------------- spend
+
+    def add_spend(self, day: str, github_id: int, usd: float, tokens: int = 0) -> None:
+        with self._tx() as db:
+            db.execute(
+                "INSERT INTO spend (day, usd, calls, tokens) VALUES (?, ?, 1, ?) "
+                "ON CONFLICT (day) DO UPDATE SET usd = usd + excluded.usd, "
+                "calls = calls + 1, tokens = tokens + excluded.tokens",
+                (day, usd, tokens),
+            )
+            db.execute(
+                "INSERT INTO spend_by_user (day, github_id, usd, calls) VALUES (?, ?, ?, 1) "
+                "ON CONFLICT (day, github_id) DO UPDATE SET usd = usd + excluded.usd, "
+                "calls = calls + 1",
+                (day, github_id, usd),
+            )
+
+    def day_spend(self, day: str) -> float:
+        with self._lock:
+            row = self._db.execute("SELECT usd FROM spend WHERE day = ?", (day,)).fetchone()
+        return row[0] if row else 0.0
+
+    def user_spend(self, day: str, github_id: int) -> float:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT usd FROM spend_by_user WHERE day = ? AND github_id = ?", (day, github_id)
+            ).fetchone()
+        return row[0] if row else 0.0
+
+    def spend_history(self, days: int = 14) -> list[dict]:
+        """Most recent days first, each with its top spenders."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT day, usd, calls, tokens FROM spend ORDER BY day DESC LIMIT ?", (days,)
+            ).fetchall()
+            history = []
+            for row in rows:
+                top = self._db.execute(
+                    "SELECT coalesce(users.login, spend_by_user.github_id) AS who, "
+                    "spend_by_user.usd, spend_by_user.calls FROM spend_by_user "
+                    "LEFT JOIN users USING (github_id) WHERE day = ? "
+                    "ORDER BY spend_by_user.usd DESC LIMIT 5",
+                    (row["day"],),
+                ).fetchall()
+                history.append(
+                    {
+                        "day": row["day"],
+                        "usd": row["usd"],
+                        "calls": row["calls"],
+                        "tokens": row["tokens"],
+                        "top": [(str(t["who"]), t["usd"], t["calls"]) for t in top],
+                    }
+                )
+        return history
 
     # ------------------------------------------------------------- reconcile
 

@@ -44,16 +44,25 @@ class LLMResponse:
     output_tokens: int = 0
     reasoning_tokens: int = 0
     tool_calls: list[ToolCall] = field(default_factory=list)
+    #: What the call actually cost, as reported by the provider. None when the
+    #: provider did not say; callers then estimate from tokens.
+    cost_usd: float | None = None
 
     def __add__(self, other: LLMResponse) -> LLMResponse:
         """Accumulate token usage across the calls that answer one question."""
+        costs = [c for c in (self.cost_usd, other.cost_usd) if c is not None]
         return LLMResponse(
             text=other.text,
             model=other.model,
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
             reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            cost_usd=sum(costs) if costs else None,
         )
+
+
+class ProviderBudgetError(RuntimeError):
+    """The provider refused for lack of credit (OpenRouter HTTP 402)."""
 
 
 @dataclass

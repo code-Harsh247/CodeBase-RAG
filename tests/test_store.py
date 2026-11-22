@@ -32,7 +32,7 @@ def test_migrations_are_idempotent(tmp_path):
     first = AppStore(tmp_path / "a.db")
     first.close()
     second = AppStore(tmp_path / "a.db")  # reopening must not re-run anything
-    assert second.migrate() == 1
+    assert second.migrate() == 2
     second.close()
 
 

@@ -99,7 +99,14 @@ def test_stream_errors_never_carry_exception_text(monkeypatch):
         raise RuntimeError("password=hunter2 at /home/ubuntu/apps/secret")
 
     monkeypatch.setattr(server, "_client", broken_client)
-    events = _events(server._stream_answer(_request(), "owner/repo"))
+    import threading
+    import time
+
+    stream = server._stream_answer(
+        _request(), "owner/repo", provider=None, cancel=threading.Event(),
+        deadline=time.monotonic() + 60,
+    )
+    events = _events(stream)
 
     assert events[-1]["type"] == "error"
     assert events[-1]["code"] == "internal"
