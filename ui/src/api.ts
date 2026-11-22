@@ -77,7 +77,26 @@ export interface HistoryTurn {
  * result is a few sentences.
  */
 /**
- * Throw a readable error for a failed response.
+ * A failed API response. `code` is the server's stable reason (see
+ * `errors.ts`); `retryAfter` is in seconds when the server said when to retry.
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+    readonly serverMessage: string,
+    readonly retryAfter: number | null,
+    what: string,
+    /** No body at all: a proxy answered because the API itself did not. */
+    readonly emptyBody = false,
+  ) {
+    super(serverMessage || `${what} (${status})`);
+    this.name = "ApiError";
+  }
+}
+
+/**
+ * Throw an `ApiError` for a failed response.
  *
  * A 401 also tells the app the session is gone, so it can return to the
  * sign-in screen instead of showing an error on every panel.
@@ -85,14 +104,29 @@ export interface HistoryTurn {
 async function ensureOk(response: Response, what: string): Promise<void> {
   if (response.ok) return;
   if (response.status === 401) notifyUnauthorized();
+  let code: string | null = null;
   let message = "";
+  const body = await response.text().catch(() => "");
   try {
-    const detail = (await response.json())?.detail;
-    message = typeof detail === "string" ? detail : (detail?.message ?? "");
+    const detail = JSON.parse(body)?.detail;
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (detail && typeof detail === "object") {
+      code = typeof detail.code === "string" ? detail.code : null;
+      message = typeof detail.message === "string" ? detail.message : "";
+    }
   } catch {
-    /* not JSON */
+    /* not JSON — e.g. the proxy's own error page */
   }
-  throw new Error(message || `${what} (${response.status})`);
+  const retry = Number(response.headers.get("Retry-After"));
+  throw new ApiError(
+    response.status,
+    code,
+    message,
+    Number.isFinite(retry) && retry > 0 ? retry : null,
+    what,
+    body.trim() === "",
+  );
 }
 
 export async function summarizeHistory(body: {

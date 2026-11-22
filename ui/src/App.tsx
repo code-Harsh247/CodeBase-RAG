@@ -5,6 +5,7 @@ import { Composer } from "./components/Composer";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Sidebar, type SidebarRow } from "./components/Sidebar";
 import { SignIn } from "./components/SignIn";
+import { describeError } from "./errors";
 import { Thread } from "./components/Thread";
 import { TracePanel } from "./components/TracePanel";
 import { newId } from "./state/types";
@@ -69,7 +70,7 @@ function Workspace({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
     } catch (exc) {
       // A failed fetch must never be read as "everything is stale" — keep the
       // local threads and say the server is unreachable.
-      setReposError(String(exc));
+      setReposError(describeError(exc));
     }
   }, []);
 
@@ -225,7 +226,7 @@ function Workspace({ me, onSignOut }: { me: Me; onSignOut: () => void }) {
       } catch (exc) {
         // `deleteRepo` already names the repo and the cause; wrapping it here
         // just says the same thing twice.
-        setActionError(exc instanceof Error ? exc.message : String(exc));
+        setActionError(describeError(exc));
       } finally {
         // On success the repo is already gone from `repos` and its threads are
         // dropped, so releasing the hold leaves it hidden. On failure it

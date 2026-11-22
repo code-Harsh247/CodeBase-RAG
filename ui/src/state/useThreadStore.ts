@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { streamIngest, streamQuery, summarizeHistory } from "../api";
+import { describeError, describeStreamError } from "../errors";
 import { deriveHistory, newestSummarizableId, shouldSummarize } from "./history";
 import { threadReducer } from "./reducer";
 import { loadStore, saveStore } from "./storage";
@@ -72,7 +73,12 @@ export function useThreadStore(login: string) {
             dispatch({ type: "repoIdentified", threadId, repoId: event.repo_id });
             dispatch({ type: "ingestDone", threadId, messageId, summary: event });
           } else {
-            dispatch({ type: "runFailed", threadId, messageId, message: event.message });
+            dispatch({
+              type: "runFailed",
+              threadId,
+              messageId,
+              message: describeStreamError(event),
+            });
           }
         },
         controller.signal,
@@ -81,7 +87,7 @@ export function useThreadStore(login: string) {
       if (controller.signal.aborted) {
         dispatch({ type: "runAborted", threadId, messageId });
       } else {
-        dispatch({ type: "runFailed", threadId, messageId, message: String(exc) });
+        dispatch({ type: "runFailed", threadId, messageId, message: describeError(exc) });
       }
     } finally {
       runs.current.delete(threadId);
@@ -134,7 +140,7 @@ export function useThreadStore(login: string) {
               type: "runFailed",
               threadId,
               messageId: assistantId,
-              message: event.message,
+              message: describeStreamError(event),
             });
           }
         },
@@ -148,7 +154,7 @@ export function useThreadStore(login: string) {
           type: "runFailed",
           threadId,
           messageId: assistantId,
-          message: String(exc),
+          message: describeError(exc),
         });
       }
     } finally {
