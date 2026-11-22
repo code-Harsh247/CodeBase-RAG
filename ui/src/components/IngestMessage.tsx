@@ -16,13 +16,21 @@ export function IngestMessage({ message }: { message: IngestMsg }) {
 
   // The rail fills to the centre of the furthest stage reached, so the line
   // grows downward as the work progresses rather than jumping per step.
-  const index = current ? STAGE_ORDER.indexOf(current.stage) : -1;
+  // "queued" is not on the rail, so it must not pull the line back to zero.
+  const index = Math.max(-1, ...message.stages.map((item) => STAGE_ORDER.indexOf(item.stage)));
   const progress =
     index < 0 ? 0 : ((index + 0.5) / STAGE_ORDER.length) * 100;
+  const waiting = message.status === "running" && current?.stage === "queued";
 
   return (
     <section className="msg msg--ingest">
       <p className="msg-label">Indexing {message.url}</p>
+
+      {waiting && (
+        <p className="notice">
+          Waiting in line — {current.detail}. Repositories are indexed one at a time.
+        </p>
+      )}
 
       <ol
         className={`stages${failed ? " failed" : ""}`}

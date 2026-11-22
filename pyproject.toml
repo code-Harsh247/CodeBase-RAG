@@ -17,7 +17,6 @@ dependencies = [
     "streamlit>=1.39",
     "pydantic>=2.9",
     "python-dotenv>=1.0",
-    "gitpython>=3.1",
 ]
 
 [project.optional-dependencies]

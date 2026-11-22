@@ -12,6 +12,7 @@ from pathlib import Path
 from graph.neo4j_client import Neo4jClient
 from graph.schema import Edge, Node
 from ingestion.languages import PYTHON, get_parser
+from ingestion.limits import IngestLimitError, IngestLimits
 from ingestion.python_mapper import PythonMapper, module_qname_for
 from ingestion.repo import ClonedRepo, clone_repo, local_repo
 from ingestion.resolver import Resolver
@@ -66,13 +67,24 @@ class IngestionSummary:
         return "\n".join(lines)
 
 
-def parse_repository(repo: ClonedRepo, include_tests: bool = False) -> tuple[list[ParsedModule], int]:
+def parse_repository(
+    repo: ClonedRepo, include_tests: bool = False, limits: IngestLimits | None = None
+) -> tuple[list[ParsedModule], int]:
     """Parse every supported source file in ``repo``. Returns (modules, failures)."""
+    limits = limits or IngestLimits.unbounded()
     parser = get_parser(PYTHON.name)
     modules: list[ParsedModule] = []
     failures = 0
 
-    for path in walk_files(repo.path, PYTHON.extensions, include_tests=include_tests):
+    files = walk_files(
+        repo.path,
+        PYTHON.extensions,
+        include_tests=include_tests,
+        max_files=limits.max_files,
+        max_total_bytes=limits.max_total_bytes,
+    )
+    for path in files:
+        limits.check()
         rel_path = path.relative_to(repo.path).as_posix()
         try:
             source = path.read_bytes()
@@ -127,6 +139,7 @@ def ingest(
     vector_store: VectorStore | None = None,
     on_progress: Callable[[str, str], None] | None = None,
     allow_local: bool = True,
+    limits: IngestLimits | None = None,
 ) -> IngestionSummary:
     """Ingest a GitHub URL or a local directory path into the graph.
 
@@ -138,20 +151,33 @@ def ingest(
     takes tens of seconds and its slowest parts (cloning, embedding) give no
     output of their own, so a caller driving a UI needs to be told what is
     happening rather than showing an unexplained wait.
+
+    ``limits`` bounds the work (see :class:`IngestLimits`); breaking one raises
+    :class:`IngestLimitError`. The graph and index for the repo may then be
+    partly rebuilt, so the caller cleans up on failure.
     """
     started = time.perf_counter()
     report = on_progress or (lambda stage, detail: None)
+    limits = limits or IngestLimits.unbounded()
 
     path = Path(source)
     report("clone", f"fetching {source}")
     if allow_local and path.exists():
         repo = local_repo(path)
     else:
-        repo = clone_repo(source, refresh=refresh)
+        repo = clone_repo(
+            source,
+            refresh=refresh,
+            timeout_s=limits.clone_timeout_s,
+            max_disk_bytes=limits.max_clone_disk_bytes,
+        )
     logger.info("ingesting %s from %s", repo.repo_id, repo.path)
 
     report("parse", f"parsing {repo.repo_id}")
-    modules, failures = parse_repository(repo, include_tests=include_tests)
+    modules, failures = parse_repository(repo, include_tests=include_tests, limits=limits)
+    if not modules:
+        raise IngestLimitError("no_python_files", "That repository has no Python source to index.")
+    limits.check()
 
     report("resolve", f"resolving references across {len(modules)} modules")
     resolution = Resolver(modules).resolve()
@@ -168,6 +194,12 @@ def ingest(
         if updates:
             node.properties.update(updates)
     nodes = _dedupe_nodes(nodes)
+    if limits.max_graph_nodes is not None and len(nodes) > limits.max_graph_nodes:
+        raise IngestLimitError(
+            "repo_too_large",
+            f"The repository would produce more than {limits.max_graph_nodes:,} graph nodes.",
+        )
+    limits.check()
 
     report("load", f"writing {len(nodes)} nodes to the graph")
     client.ensure_schema()
@@ -177,7 +209,8 @@ def ingest(
 
     report("embed", "building the semantic index")
     store = vector_store if vector_store is not None else VectorStore()
-    embedded = store.index(repo.repo_id, nodes)
+    limits.check()
+    embedded = store.index(repo.repo_id, nodes, check=limits.check)
 
     return IngestionSummary(
         repo_id=repo.repo_id,

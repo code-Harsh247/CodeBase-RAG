@@ -20,6 +20,23 @@ def _split(value: str | None) -> tuple[str, ...]:
     return tuple(item.strip() for item in (value or "").split(",") if item.strip())
 
 
+def _optional_int(value: str | None, default: int | None) -> int | None:
+    """Unset -> ``default``; ``0`` or ``off`` -> None (disabled)."""
+    if value is None or not value.strip():
+        return default
+    if value.strip().lower() in {"0", "off", "none"}:
+        return None
+    return int(value)
+
+
+def _optional_float(value: str | None, default: float | None) -> float | None:
+    if value is None or not value.strip():
+        return default
+    if value.strip().lower() in {"0", "off", "none"}:
+        return None
+    return float(value)
+
+
 def origin_of(url: str) -> str:
     parts = urlsplit(url)
     return f"{parts.scheme}://{parts.netloc}"
@@ -43,6 +60,25 @@ class Settings:
     auth_dev_user: str = ""
     #: Repositories every signed-in user can see; admins seed these.
     public_repos: tuple[str, ...] = ()
+
+    # -- ingestion limits (see ingestion/limits.py) ------------------------
+    #: App-level GitHub token for the size pre-check; needs no scopes.
+    github_token: str = field(default="", repr=False)
+    max_repo_size_mb: int = 200
+    max_clone_disk_mb: int = 300
+    clone_timeout_s: float = 90
+    ingest_deadline_s: float = 300
+    max_py_files: int = 2_000
+    max_py_total_mb: int = 30
+    max_graph_nodes: int = 60_000
+    min_free_disk_gb: float = 5
+    max_repos_per_user: int = 5
+    #: Waiting ingestions allowed behind the one running.
+    ingest_queue_max: int = 3
+    #: Eviction. ``None`` turns it off, which is the default outside
+    #: production so a developer's local repositories are never deleted.
+    max_indexed_repos: int | None = None
+    repo_idle_ttl_days: float | None = None
 
     @property
     def production(self) -> bool:
@@ -91,6 +127,21 @@ class Settings:
             session_ttl_days=int(env("SESSION_TTL_DAYS") or 30),
             auth_dev_user=(env("AUTH_DEV_USER") or "").strip(),
             public_repos=_split(env("PUBLIC_REPOS")),
+            github_token=(env("GITHUB_TOKEN") or "").strip(),
+            max_repo_size_mb=int(env("MAX_REPO_SIZE_MB") or 200),
+            max_clone_disk_mb=int(env("MAX_CLONE_DISK_MB") or 300),
+            clone_timeout_s=float(env("CLONE_TIMEOUT_SECONDS") or 90),
+            ingest_deadline_s=float(env("INGEST_DEADLINE_SECONDS") or 300),
+            max_py_files=int(env("MAX_PY_FILES") or 2_000),
+            max_py_total_mb=int(env("MAX_PY_TOTAL_MB") or 30),
+            max_graph_nodes=int(env("MAX_GRAPH_NODES") or 60_000),
+            min_free_disk_gb=float(env("MIN_FREE_DISK_GB") or 5),
+            max_repos_per_user=int(env("MAX_REPOS_PER_USER") or 5),
+            ingest_queue_max=int(env("INGEST_QUEUE_MAX") or 3),
+            max_indexed_repos=_optional_int(env("MAX_INDEXED_REPOS"), 50 if production else None),
+            repo_idle_ttl_days=_optional_float(
+                env("REPO_IDLE_TTL_DAYS"), 7 if production else None
+            ),
         )
         settings.check()
         return settings

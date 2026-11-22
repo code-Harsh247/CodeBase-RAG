@@ -11,8 +11,10 @@ expanded into its graph neighbourhood instead of being answered in isolation.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -74,7 +76,17 @@ class VectorStore:
 
     @staticmethod
     def _collection_name(repo_id: str) -> str:
-        # Chroma names allow a limited character set; repo ids contain "/".
+        """A hash of the lower-cased id: one name per repository, whatever its spelling.
+
+        Chroma allows only a limited character set, and an earlier scheme that
+        substituted the rest (``/`` -> ``__``, ``.`` -> ``_``) mapped
+        ``u/my.lib`` and ``u/my_lib`` to the same collection.
+        """
+        return "repo_" + hashlib.sha1(repo_id.lower().encode()).hexdigest()[:20]
+
+    @staticmethod
+    def _legacy_collection_name(repo_id: str) -> str:
+        """The pre-hash name, still read so existing indexes keep working."""
         return "repo_" + repo_id.replace("/", "__").replace(".", "_")
 
     def _collection(self, repo_id: str):
@@ -82,14 +94,36 @@ class VectorStore:
             name=self._collection_name(repo_id), metadata={"hnsw:space": "cosine"}
         )
 
-    def drop(self, repo_id: str) -> None:
-        try:
-            self._client.delete_collection(self._collection_name(repo_id))
-        except Exception as exc:  # noqa: BLE001 - absent collection is not an error
-            logger.debug("no collection to drop for %s: %s", repo_id, exc)
+    def _existing_collection(self, repo_id: str):
+        """The collection holding the index for ``repo_id``, or None. Never creates one."""
+        for name in (self._collection_name(repo_id), self._legacy_collection_name(repo_id)):
+            try:
+                collection = self._client.get_collection(name)
+            except Exception:  # noqa: BLE001, S112 - Chroma raises various "not found" types
+                continue
+            if collection.count():
+                return collection
+        return None
 
-    def index(self, repo_id: str, nodes: list[Node], batch_size: int = 200) -> int:
-        """Replace the index for ``repo_id`` with summaries of ``nodes``."""
+    def drop(self, repo_id: str) -> None:
+        for name in (self._collection_name(repo_id), self._legacy_collection_name(repo_id)):
+            try:
+                self._client.delete_collection(name)
+            except Exception as exc:  # noqa: BLE001 - absent collection is not an error
+                logger.debug("no collection %s to drop for %s: %s", name, repo_id, exc)
+
+    def index(
+        self,
+        repo_id: str,
+        nodes: list[Node],
+        batch_size: int = 200,
+        check: Callable[[], None] | None = None,
+    ) -> int:
+        """Replace the index for ``repo_id`` with summaries of ``nodes``.
+
+        ``check`` runs before each batch; raising from it abandons the index
+        (embedding is the slowest stage, so this is where a deadline bites).
+        """
         indexable = [node for node in nodes if node.type in INDEXED_TYPES]
         self.drop(repo_id)
         if not indexable:
@@ -97,6 +131,8 @@ class VectorStore:
 
         collection = self._collection(repo_id)
         for start in range(0, len(indexable), batch_size):
+            if check is not None:
+                check()
             batch = indexable[start : start + batch_size]
             collection.add(
                 ids=[node.id for node in batch],
@@ -114,8 +150,8 @@ class VectorStore:
         return len(indexable)
 
     def search(self, repo_id: str, query: str, limit: int = 8) -> list[SemanticHit]:
-        collection = self._collection(repo_id)
-        if collection.count() == 0:
+        collection = self._existing_collection(repo_id)
+        if collection is None:
             return []
 
         found = collection.query(

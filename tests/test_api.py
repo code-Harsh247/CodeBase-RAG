@@ -176,8 +176,10 @@ def test_a_failed_ingest_leaves_no_ownership(web, monkeypatch):
     events = _events(response)
     assert events[-1] == {"type": "error", "code": "internal", "message": server.ERROR_MESSAGES["internal"]}
     assert "hunter2" not in response.text
-    assert web.store.get_repo("bad/repo").status == "failed"
+    # A failed first ingest leaves nothing behind: no record, no ownership.
+    assert web.store.get_repo("bad/repo") is None
     assert not web.store.is_owner(alice.github_id, "bad/repo")
+    assert web.graph.deleted == ["bad/repo"]
 
 
 def test_ingest_limit_errors_keep_their_code(web, monkeypatch):
@@ -203,7 +205,7 @@ def test_a_repo_being_indexed_cannot_be_started_twice(web):
     web.store.begin_indexing("busy/repo")
     response = web.client.post("/api/ingest", json={"url": "https://github.com/busy/repo"})
     assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "ingest_busy"
+    assert response.json()["detail"]["code"] == "repo_busy"
 
 
 def test_non_github_urls_are_rejected_before_streaming(web):

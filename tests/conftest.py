@@ -172,6 +172,33 @@ class FakeGraphServer:
         return self.repos.pop(repo_id, 0)
 
 
+def fake_github_api(sizes: dict[str, int] | None = None, missing=(), canonical=None):
+    """A GitHub REST API double: every repo exists, at ``sizes[repo]`` KB (default 100)."""
+    import httpx
+
+    sizes = sizes or {}
+    canonical = canonical or {}
+
+    def handler(request):
+        parts = request.url.path.strip("/").split("/")
+        if len(parts) == 3 and parts[0] == "repos":
+            repo_id = f"{parts[1]}/{parts[2]}"
+            if repo_id in missing:
+                return httpx.Response(404, json={"message": "Not Found"})
+            return httpx.Response(
+                200,
+                json={
+                    "full_name": canonical.get(repo_id, repo_id),
+                    "size": sizes.get(repo_id, 100),
+                    "private": False,
+                    "default_branch": "main",
+                },
+            )
+        return httpx.Response(404)
+
+    return httpx.MockTransport(handler)
+
+
 class _NoVectors:
     def drop(self, repo_id):
         return None
@@ -217,7 +244,9 @@ def web(tmp_path, monkeypatch):
         github_client_id="client-id",
         github_client_secret="client-secret",
         admin_logins=frozenset({"admin"}),
+        min_free_disk_gb=0,
     )
     app = server.create_app(settings)
+    app.state.github_transport = fake_github_api()
     with TestClient(app) as client:
         yield WebApp(client, app, graph)

@@ -14,7 +14,9 @@ from __future__ import annotations
 import json
 import logging
 import queue
+import shutil
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -31,14 +33,16 @@ from agent.provider import Message, get_provider
 from agent.query_agent import QueryAgent
 from agent.summarize import Turn, summarize, trim_to_budget
 from api.auth import router as auth_router
-from api.deps import CurrentUser, User, api_error, get_store, same_origin
-from api.maintenance import physical_delete, reconcile
+from api.deps import CurrentUser, User, api_error, get_settings, get_store, same_origin
+from api.ingest_queue import IngestCoordinator, Ticket
+from api.maintenance import evict, physical_delete, reconcile
 from api.settings import Settings
 from api.store import AppStore
 from graph.neo4j_client import Neo4jClient
-from ingestion.limits import IngestLimitError
+from ingestion.github import fetch_repo_meta
+from ingestion.limits import IngestLimitError, IngestLimits
 from ingestion.pipeline import ingest
-from ingestion.repo import parse_github_url, repo_dir, validate_repo_id
+from ingestion.repo import clone_root, parse_github_url, repo_dir, validate_repo_id
 from retrieval.tools import RetrievalTools
 
 logger = logging.getLogger(__name__)
@@ -63,6 +67,9 @@ ERROR_MESSAGES = {
 }
 
 _STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+#: How long a request waits for a repository another request is changing.
+REPO_LOCK_WAIT_S = 5.0
 
 
 def _error(code: str, message: str | None = None) -> dict:
@@ -144,12 +151,31 @@ def _event(payload: dict) -> str:
     return f"data: {json.dumps(payload)}\n\n"
 
 
-def _drain(events: queue.Queue) -> Iterator[str]:
-    while True:
-        item = events.get()
-        if item is None:
-            break
-        yield _event(item)
+def _drain(events: queue.Queue, cancel: threading.Event | None = None) -> Iterator[str]:
+    """Forward queued events as SSE frames until the worker signals the end.
+
+    ``cancel`` is set when the stream stops for any reason, including the
+    client going away mid-stream, so the worker can stop waiting on its behalf.
+    """
+    try:
+        while True:
+            item = events.get()
+            if item is None:
+                break
+            yield _event(item)
+    finally:
+        if cancel is not None:
+            cancel.set()
+
+
+def get_coordinator(request: Request) -> IngestCoordinator:
+    return request.app.state.coordinator
+
+
+def _busy() -> Exception:
+    return api_error(
+        409, "repo_busy", "That repository is being indexed right now. Try again shortly."
+    )
 
 
 def _history_messages(request: QueryRequest) -> list[Message]:
@@ -174,18 +200,9 @@ def _history_messages(request: QueryRequest) -> list[Message]:
 
 
 def _failure_code(exc: Exception) -> str:
-    """Classify an ingest failure into one of the fixed error codes.
-
-    A raw GitCommandError is several lines of command line and stderr; the
-    part that matters is almost always "that repository is not reachable".
-    """
-    if isinstance(exc, IngestLimitError):
-        return exc.code if exc.code in ERROR_MESSAGES else "internal"
-    text = str(exc).lower()
-    if "repository not found" in text or "not found" in text:
-        return "repo_not_found"
-    if "git" in type(exc).__module__.lower() or "could not resolve host" in text:
-        return "clone_failed"
+    """One of the fixed error codes for an ingest failure; never exception text."""
+    if isinstance(exc, IngestLimitError) and exc.code in ERROR_MESSAGES:
+        return exc.code
     return "internal"
 
 
@@ -240,23 +257,31 @@ def delete_repo(
         raise api_error(400, "invalid_repo", "Invalid repository id.") from None
 
     store = get_store(request)
-    record = store.get_repo(repo_id)
+    # Under the repository lock, so a removal cannot interleave with someone
+    # adding the same repo, or with an ingest or eviction of it.
+    try:
+        with get_coordinator(request).repo_lock(repo_id, timeout_s=REPO_LOCK_WAIT_S):
+            record = store.get_repo(repo_id)
+            if record is not None and record.status == "indexing":
+                raise _busy()
 
-    if user.is_admin:
-        # Includes graph data with no record at all, e.g. from before the store.
-        with _client() as client:
-            result = physical_delete(client, record.repo_id if record else repo_id, store)
-        return {**result, "scope": "repo"}
+            if user.is_admin:
+                # Includes graph data with no record at all, e.g. from before the store.
+                with _client() as client:
+                    result = physical_delete(client, record.repo_id if record else repo_id, store)
+                return {**result, "scope": "repo"}
 
-    if record is None or not store.is_owner(user.github_id, record.repo_id):
-        raise _not_found()
+            if record is None or not store.is_owner(user.github_id, record.repo_id):
+                raise _not_found()
 
-    remaining = store.remove_owner(user.github_id, record.repo_id)
-    if remaining == 0 and not record.public and record.status != "indexing":
-        with _client() as client:
-            result = physical_delete(client, record.repo_id, store)
-        return {**result, "scope": "repo"}
-    return {"repo_id": record.repo_id, "scope": "claim"}
+            remaining = store.remove_owner(user.github_id, record.repo_id)
+            if remaining == 0 and not record.public:
+                with _client() as client:
+                    result = physical_delete(client, record.repo_id, store)
+                return {**result, "scope": "repo"}
+            return {"repo_id": record.repo_id, "scope": "claim"}
+    except TimeoutError:
+        raise _busy() from None
 
 
 @router.post("/summarize", dependencies=[Depends(same_origin)])
@@ -364,35 +389,111 @@ def query(
     )
 
 
-def _stream_ingest(
-    store: AppStore, user: CurrentUser, repo_id: str, refresh: bool
-) -> Iterator[str]:
-    """Clone, parse and index a repository, reporting each stage as it starts.
+def _ensure_disk(settings: Settings) -> None:
+    root = clone_root()
+    root.mkdir(parents=True, exist_ok=True)
+    if shutil.disk_usage(root).free < settings.min_free_disk_gb * 1e9:
+        raise IngestLimitError("server_full", ERROR_MESSAGES["server_full"])
 
-    The caller has already claimed ``repo_id`` with ``begin_indexing``; this
-    always settles that claim as ready or failed.
+
+def _limits(settings: Settings) -> IngestLimits:
+    return IngestLimits(
+        max_files=settings.max_py_files,
+        max_total_bytes=settings.max_py_total_mb * 1_000_000,
+        max_graph_nodes=settings.max_graph_nodes,
+        clone_timeout_s=settings.clone_timeout_s,
+        max_clone_disk_bytes=settings.max_clone_disk_mb * 1_000_000,
+        deadline=time.monotonic() + settings.ingest_deadline_s,
+    )
+
+
+def _stream_ingest(
+    app: FastAPI,
+    user: CurrentUser,
+    repo_id: str,
+    *,
+    refresh: bool,
+    fresh: bool,
+    ticket: Ticket,
+) -> Iterator[str]:
+    """Wait in line, then clone, parse and index, reporting each stage.
+
+    The caller has claimed ``repo_id`` with ``begin_indexing`` and taken a
+    queue ticket; this always settles both. A failed *fresh* ingest leaves
+    nothing behind — no record, graph, index or clone — so it cannot hold
+    disk or show up half-built. A failed refresh is marked failed for an
+    admin to look at.
     """
+    settings: Settings = app.state.settings
+    store: AppStore = app.state.store
+    coordinator: IngestCoordinator = app.state.coordinator
     events: queue.Queue = queue.Queue()
+    cancel = threading.Event()
+
+    def queued(ahead: int) -> None:
+        events.put(
+            {
+                "type": "progress",
+                "stage": "queued",
+                "detail": f"{ahead} indexing job{'s' if ahead != 1 else ''} ahead of you",
+            }
+        )
+
+    def settle_failure(client) -> None:
+        if not fresh:
+            store.mark_failed(repo_id)
+            return
+        try:
+            if client is not None:
+                physical_delete(client, repo_id, store)
+            else:
+                store.forget_repo(repo_id)
+        except Exception:
+            logger.warning("cleanup after failed ingest of %s failed", repo_id, exc_info=True)
+            store.mark_failed(repo_id)
 
     def work() -> None:
+        settled = False
         try:
             events.put({"type": "progress", "stage": "start", "detail": repo_id})
-            with _client() as client:
-                summary = ingest(
-                    f"https://github.com/{repo_id}",
-                    client,
-                    refresh=refresh,
-                    on_progress=lambda stage, detail: events.put(
-                        {"type": "progress", "stage": stage, "detail": detail}
-                    ),
-                    # Never index a path on this machine, whatever the input says.
-                    allow_local=False,
+            # Only waiting is cancellable: once indexing starts it runs to the
+            # end, since the result is shared by everyone who adds this repo.
+            ticket.wait(cancel, on_position=queued)
+            with _client() as client, coordinator.repo_lock(repo_id):
+                try:
+                    evict(
+                        store,
+                        client,
+                        coordinator,
+                        max_indexed=settings.max_indexed_repos,
+                        idle_ttl_s=(
+                            settings.repo_idle_ttl_days * 86_400
+                            if settings.repo_idle_ttl_days
+                            else None
+                        ),
+                        keep=repo_id,
+                    )
+                    _ensure_disk(settings)
+                    summary = ingest(
+                        f"https://github.com/{repo_id}",
+                        client,
+                        refresh=refresh,
+                        on_progress=lambda stage, detail: events.put(
+                            {"type": "progress", "stage": stage, "detail": detail}
+                        ),
+                        # Never index a path on this machine, whatever the input says.
+                        allow_local=False,
+                        limits=_limits(settings),
+                    )
+                except Exception:
+                    settle_failure(client)
+                    settled = True
+                    raise
+                nodes = sum(summary.node_counts.values())
+                store.mark_ready(
+                    repo_id, commit_sha=summary.commit, files=summary.files_parsed, nodes=nodes
                 )
-            nodes = sum(summary.node_counts.values())
-            store.mark_ready(
-                repo_id, commit_sha=summary.commit, files=summary.files_parsed, nodes=nodes
-            )
-            store.add_owner(user.github_id, repo_id)
+                store.add_owner(user.github_id, repo_id)
             events.put(
                 {
                     "type": "done",
@@ -406,18 +507,21 @@ def _stream_ingest(
             )
         except IngestLimitError as exc:
             # Limit messages are written for users and carry no internals.
-            logger.info("ingest of %s refused: %s", repo_id, exc.code)
-            store.mark_failed(repo_id)
+            logger.info("ingest of %s stopped: %s", repo_id, exc.code)
+            if not settled:
+                settle_failure(None)
             events.put(_error(_failure_code(exc), exc.message))
-        except Exception as exc:
+        except Exception:
             logger.exception("ingest of %s failed", repo_id)
-            store.mark_failed(repo_id)
-            events.put(_error(_failure_code(exc)))
+            if not settled:
+                settle_failure(None)
+            events.put(_error("internal"))
         finally:
+            ticket.release()
             events.put(None)
 
     threading.Thread(target=work, daemon=True).start()
-    yield from _drain(events)
+    yield from _drain(events, cancel)
 
 
 def _already_indexed(record) -> Iterator[str]:
@@ -436,39 +540,116 @@ def _already_indexed(record) -> Iterator[str]:
     )
 
 
+def _add_existing(request: Request, user: CurrentUser, repo_id: str):
+    """Add an already-indexed repo to the user's projects; the record, or None.
+
+    Under the repository lock, re-checking it is still ready, so this cannot
+    race the last owner deleting it.
+    """
+    store = get_store(request)
+    try:
+        with get_coordinator(request).repo_lock(repo_id, timeout_s=REPO_LOCK_WAIT_S):
+            record = store.get_repo(repo_id)
+            if record is None or record.status != "ready":
+                return None
+            store.add_owner(user.github_id, record.repo_id)
+            store.touch_repo(record.repo_id)
+            return record
+    except TimeoutError:
+        raise _busy() from None
+
+
+def _stream(body: Iterator[str]) -> StreamingResponse:
+    return StreamingResponse(body, media_type="text/event-stream", headers=_STREAM_HEADERS)
+
+
 @router.post("/ingest", dependencies=[Depends(same_origin)])
-def ingest_repo(
-    body: IngestRequest, request: Request, user: User
-) -> StreamingResponse:
-    # Reject anything that is not a GitHub repository before streaming starts:
-    # this endpoint runs `git clone` on what it is given, and once the stream
-    # begins the response is already a 200.
+def ingest_repo(body: IngestRequest, request: Request, user: User) -> StreamingResponse:
+    """Index a public GitHub repository, or add an already-indexed one.
+
+    Every refusal happens here, before streaming starts, so it arrives as a
+    proper HTTP status: once the stream begins the response is already a 200.
+    """
+    settings = get_settings(request)
+    store = get_store(request)
+    coordinator = get_coordinator(request)
+
     try:
         owner, name = parse_github_url(body.url)
     except ValueError as exc:
         raise api_error(400, "invalid_url", str(exc)) from None
-
-    store = get_store(request)
-    record = store.get_repo(f"{owner}/{name}")
-    repo_id = record.repo_id if record else f"{owner}/{name}"
+    repo_id = f"{owner}/{name}"
     refresh = body.refresh and user.is_admin
 
-    # Somebody already indexed it: adding it to this user's projects is free.
-    if record is not None and record.status == "ready" and not refresh:
-        store.add_owner(user.github_id, repo_id)
-        store.touch_repo(repo_id)
-        return StreamingResponse(
-            _already_indexed(record), media_type="text/event-stream", headers=_STREAM_HEADERS
-        )
+    def owns(candidate: str) -> bool:
+        return store.is_owner(user.github_id, candidate)
 
-    if not store.begin_indexing(repo_id):
-        raise api_error(
-            409, "ingest_busy", "That repository is being indexed right now. Try again shortly."
+    def check_quota(candidate: str) -> None:
+        if user.is_admin or owns(candidate):
+            return
+        if store.owned_count(user.github_id) >= settings.max_repos_per_user:
+            raise api_error(
+                403,
+                "repo_limit",
+                f"You can have up to {settings.max_repos_per_user} projects. "
+                f"Remove one to add another.",
+            )
+
+    # Already indexed by someone: adding it costs nothing.
+    record = store.get_repo(repo_id)
+    if record is not None and record.status == "ready" and not refresh:
+        check_quota(record.repo_id)
+        added = _add_existing(request, user, record.repo_id)
+        if added is not None:
+            return _stream(_already_indexed(added))
+
+    check_quota(repo_id)
+
+    # Ask GitHub before cloning: existence, size, and the canonical spelling.
+    try:
+        meta = fetch_repo_meta(
+            owner,
+            name,
+            token=settings.github_token,
+            transport=request.app.state.github_transport,
         )
-    return StreamingResponse(
-        _stream_ingest(store, user, repo_id, refresh),
-        media_type="text/event-stream",
-        headers=_STREAM_HEADERS,
+    except IngestLimitError as exc:
+        raise api_error(404, exc.code, exc.message) from None
+    if meta is not None:
+        if meta.size_kb > settings.max_repo_size_mb * 1024:
+            raise api_error(
+                413,
+                "repo_too_large",
+                f"That repository is about {meta.size_kb // 1024} MB; this demo indexes "
+                f"repositories up to {settings.max_repo_size_mb} MB.",
+            )
+        repo_id = meta.full_name
+        # A renamed repo may already be indexed under its current name.
+        record = store.get_repo(repo_id)
+        if record is not None and record.status == "ready" and not refresh:
+            added = _add_existing(request, user, record.repo_id)
+            if added is not None:
+                return _stream(_already_indexed(added))
+    if record is not None:
+        repo_id = record.repo_id
+
+    ticket = coordinator.try_enqueue()
+    if ticket is None:
+        raise api_error(
+            503,
+            "ingest_busy",
+            "The server is busy indexing other repositories. Try again in a few minutes.",
+            headers={"Retry-After": "60"},
+        )
+    if not store.begin_indexing(repo_id):
+        ticket.release()
+        raise _busy()
+
+    fresh = record is None or record.status != "ready"
+    return _stream(
+        _stream_ingest(
+            request.app, user, repo_id, refresh=refresh, fresh=fresh, ticket=ticket
+        )
     )
 
 
@@ -514,6 +695,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.github_transport = None
+    app.state.coordinator = IngestCoordinator(workers=1, max_waiting=settings.ingest_queue_max)
 
     # The UI is served from a separate origin only when not behind the Vite
     # proxy; in production it is same-origin, so this list is usually empty.
