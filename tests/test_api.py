@@ -6,6 +6,7 @@ import json
 import time
 
 import pytest
+from conftest import FakeProvider
 
 from api import server
 
@@ -116,6 +117,7 @@ def test_query_uses_the_canonical_repo_id(web, monkeypatch):
         yield server._event({"type": "answer", "answer": "ok", "locations": [], "usage": {}})
 
     monkeypatch.setattr(server, "_stream_answer", fake_stream)
+    monkeypatch.setattr(server, "get_provider", FakeProvider)
     response = web.client.post("/api/query", json={"repo_id": "psf/requests", "question": "hi"})
 
     assert response.status_code == 200
