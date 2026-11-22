@@ -60,6 +60,10 @@ from ingestion.repo import clone_root, parse_github_url, repo_dir, validate_repo
 from retrieval.tools import RetrievalTools
 
 logger = logging.getLogger(__name__)
+# Neo4j logs a warning for every query naming a label or property that does
+# not exist yet: on an empty database at startup, and whenever model-written
+# Cypher has a typo. The agent already sees those as empty results.
+logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
 
 load_dotenv()
 
